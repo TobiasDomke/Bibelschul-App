@@ -110,6 +110,9 @@ class ReadingStore {
     return completer.future;
   }
 
+  /// Takes over a state from another device of the same account, keeping its id.
+  Future<ReadingState> replace(ReadingState state) async => (await _transaction((_) => state.copy()))!;
+
   Future<ReadingState> restore(ReadingState state, String? expectedId) async =>
       (await _transaction((current) {
         if (current?.id != expectedId) throw const AppError('stale');

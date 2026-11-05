@@ -52,6 +52,17 @@ class Home extends StatelessWidget {
         ]),
         // The language matters most before a plan exists; afterwards it lives in the settings.
         actions: [
+          if (showTabs && c.sync.linked)
+            ListenableBuilder(
+              listenable: c.sync,
+              builder: (context, _) => IconButton(
+                tooltip: fill(ui(lang)['syncSignedIn'], {'name': c.sync.account?.name ?? ''}),
+                onPressed: () => c.setTab('settings'),
+                icon: Icon(c.sync.running
+                    ? Icons.cloud_sync_outlined
+                    : (c.sync.error.isEmpty ? Icons.cloud_done_outlined : Icons.cloud_off_outlined)),
+              ),
+            ),
           if (!showTabs)
             PopupMenuButton<Lang>(
               tooltip: t.language,
@@ -214,6 +225,7 @@ class Home extends StatelessWidget {
                 c.reminderTime = s.config.time;
                 c.zone = s.config.timezone;
               });
+              if (choice.previousSeconds != null) await c.prefs.setPreviousSeconds(s.id, choice.previousSeconds);
               if (choice.remind) await c.enableReminders();
             }
           },

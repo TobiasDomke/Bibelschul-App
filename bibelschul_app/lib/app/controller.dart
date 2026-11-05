@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 
@@ -11,12 +12,13 @@ import '../core/state.dart';
 import '../core/util.dart';
 import '../i18n/feature_texts.dart';
 import '../i18n/i18n.dart';
-import '../services/auto_backup.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences.dart';
 import '../services/reminders.dart';
 import '../services/storage.dart';
 import 'groups.dart';
+import 'sync.dart';
+import '../core/sync.dart';
 import 'plan_view.dart';
 
 enum LoadStatus { loading, ready, error }
@@ -29,7 +31,6 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     required this.prefs,
     required this.deviceZone,
     required Lang systemLang,
-    this.autoBackups,
     this.native = true,
   })  : lang = prefs.lang ?? systemLang,
         theme = const ['light', 'dark'].contains(prefs.theme) ? prefs.theme! : 'system';
@@ -37,10 +38,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   final ReadingStore store;
   final Preferences prefs;
   final String deviceZone;
-  final AutoBackup? autoBackups;
 
   /// Reading groups (opt-in; nothing is sent before creating or joining one).
   late GroupsController groups = GroupsController(prefs.store);
+
+  /// Account and devices: the same reading on every device of the account.
+  late SyncController sync = SyncController(prefs.store, local: syncDocument, apply: applySyncDocument);
 
   /// False in tests: no notifications, widget or live activity.
   final bool native;
@@ -87,6 +90,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     });
     await load();
     unawaited(_syncDevice(null));
+    if (native) unawaited(sync.syncNow());
   }
 
   @override
@@ -100,7 +104,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState s) {
     if (s == AppLifecycleState.resumed) {
       now = DateTime.now().millisecondsSinceEpoch;
-      if (!busy) unawaited(load(silent: true).then((_) => _syncDevice(null)));
+      if (!busy) {
+        unawaited(load(silent: true).then((_) => _syncDevice(null)).then((_) => native ? sync.syncNow() : null));
+      }
     }
   }
 
@@ -166,6 +172,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final updated = await store.change({...op, 'planId': state?.id, 'opId': uuid()});
       state = updated;
+      sync.markChanged();
       now = DateTime.now().millisecondsSinceEpoch;
       unawaited(_syncDevice(before, backup: op['action'] == 'complete'));
       return updated;
@@ -240,7 +247,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     final restoredState = await store.restore(backup.backup.state, state?.id);
     notes = mergeRestoredNotes(notes, backup.notes, backup.backup.state.id, restoredState.id);
     await store.writeNotes(notes);
+    await prefs.setPreviousSeconds(restoredState.id, backup.previousSeconds);
     restored(restoredState, backup.backup.theme);
+    sync.markChanged();
     final access = backup.groups;
     if (access != null) unawaited(groups.restoreAccess(access, PlanView.of(this)));
     return restoredState;
@@ -306,12 +315,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       ];
     }
     await store.writeNotes(notes);
+    sync.markChanged();
     update(() => message = 'note');
   }
 
   Future<void> deleteNote(String id) async {
     notes = notes.where((n) => n.id != id).toList();
     await store.writeNotes(notes);
+    sync.markChanged();
     update(() => message = 'noteDeleted');
   }
 
@@ -340,11 +351,6 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  void setAutoBackup(bool enabled) {
-    prefs.autoBackup = enabled;
-    notifyListeners();
-  }
-
   Future<void> _syncReminders() async {
     final s = state;
     if (!native || !prefs.remindersEnabled || s == null) return;
@@ -361,12 +367,6 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     final s = state;
     await _syncReminders();
     if (s == null) return;
-    if (backup && prefs.autoBackup && autoBackups != null) {
-      try {
-        await autoBackups!.write(s, lang, backupTheme, notes, null, groups.access);
-        prefs.lastAutoBackup = DateTime.now().millisecondsSinceEpoch;
-      } catch (_) {}
-    }
     if (!native) return;
     final v = PlanView.of(this);
     if (v != null) {
@@ -405,5 +405,44 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         await NativeBridge.instance.stopTimer();
       }
     }
+  }
+
+  // ----- Account sync -----
+
+  /// This device's data as exchanged with the other devices.
+  Future<SyncDocument> syncDocument() async {
+    final s = await store.read();
+    return SyncDocument(
+      state: s,
+      notes: notes,
+      changedAt: sync.changedAt,
+      previousSeconds: s == null ? null : prefs.previousSeconds(s.id),
+      groups: groups.access,
+    );
+  }
+
+  /// Stores what came from another device and refreshes everything that
+  /// depends on it (reminders, widget). Waits while a change is being saved.
+  Future<void> applySyncDocument(SyncDocument doc) async {
+    while (busy) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    final before = state;
+    final incoming = doc.state;
+    if (incoming != null && (before == null || jsonEncode(incoming.toJson()) != jsonEncode(before.toJson()))) {
+      state = await store.replace(incoming);
+      lang = state!.lang;
+      reminderTime = state!.config.time;
+      zone = state!.config.timezone;
+      if (newPlan) newPlan = false;
+    }
+    notes = doc.notes;
+    await store.writeNotes(notes);
+    if (incoming != null) await prefs.setPreviousSeconds(incoming.id, doc.previousSeconds);
+    final access = doc.groups;
+    if (access != null && !groups.joined) unawaited(groups.restoreAccess(access, PlanView.of(this)));
+    now = DateTime.now().millisecondsSinceEpoch;
+    notifyListeners();
+    unawaited(_syncDevice(before));
   }
 }

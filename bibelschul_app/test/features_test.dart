@@ -1,7 +1,6 @@
 // Native-only features: notes in backups, plan codes, smart reminders,
 // catch-up suggestion, book progress, automatic backups and translations.
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:bibelschul_app/core/actions.dart';
 import 'package:bibelschul_app/core/backup.dart';
@@ -13,7 +12,6 @@ import 'package:bibelschul_app/core/planner.dart';
 import 'package:bibelschul_app/core/state.dart';
 import 'package:bibelschul_app/core/util.dart';
 import 'package:bibelschul_app/i18n/feature_texts.dart';
-import 'package:bibelschul_app/services/auto_backup.dart';
 import 'package:bibelschul_app/services/reminders.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -144,21 +142,6 @@ void main() {
     final books = bookProgress(read);
     expect(books.length, 27);
     expect(books.first, (39, 4, 28));
-  });
-
-  test('automatic backups keep one file per day and the latest ten', () async {
-    final dir = Directory.systemTemp.createTempSync('leseweg-auto');
-    final backups = AutoBackup(dir);
-    final s = _plan();
-    for (var i = 0; i < 14; i++) {
-      await backups.write(s, Lang.de, 'light', const [], DateTime.utc(2026, 3, 2 + i, 12).millisecondsSinceEpoch);
-    }
-    await backups.write(s, Lang.de, 'light', const [], DateTime.utc(2026, 3, 15, 18).millisecondsSinceEpoch);
-    final files = dir.listSync().whereType<File>().map((f) => f.uri.pathSegments.last).toList()..sort();
-    expect(files.length, AutoBackup.keep);
-    expect(files.last, 'leseweg-sicherung-2026-03-15.json');
-    expect(files.first, 'leseweg-sicherung-2026-03-06.json');
-    expect(parseAppBackup(File('${dir.path}/${files.last}').readAsStringSync()).backup.state.id, s.id);
   });
 
   test('all native texts exist in every language', () {

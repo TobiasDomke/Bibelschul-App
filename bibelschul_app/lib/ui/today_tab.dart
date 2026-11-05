@@ -396,17 +396,6 @@ class TodayTab extends StatelessWidget {
     return Gap(space: 14, children: [
       if (s.config.edition == null && lang.name != 'de')
         Notice(text: e.legacyEdition, actions: [OutlinedButton(onPressed: () => c.setTab('settings'), child: Text(t.settings))]),
-      if (v.backupDue)
-        Notice(text: e.backupReminder, actions: [
-          OutlinedButton(onPressed: () => c.setTab('settings'), child: Text(e.backupGo)),
-          TextButton(
-            onPressed: () async {
-              await c.prefs.recordBackup(s.id, 'snoozed');
-              c.update(() {});
-            },
-            child: Text(e.backupLater),
-          ),
-        ]),
       if (s.editionReview?.isNotEmpty ?? false)
         Notice(
             kind: NoticeKind.warning,

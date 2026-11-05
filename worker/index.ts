@@ -9,6 +9,7 @@ import type {
 } from "@cloudflare/workers-types";
 import { localDate, nextReminder } from "./schedule";
 import { handleGroups, isGroupPath } from "./groups";
+import { handleSync, isSyncPath } from "./sync";
 import { languageCodes, type Lang } from "../lib/languages";
 
 export interface Env {
@@ -280,6 +281,8 @@ export async function handleRequest(
     });
   // Reading groups are also used by the native app, which sends no Origin.
   if (isGroupPath(path)) return handleGroups(request, env, headers, now);
+  // Device sync ("Konto & Geräte") follows the same transport rules.
+  if (isSyncPath(path)) return handleSync(request, env, headers, now);
   if (origin !== env.APP_ORIGIN)
     return reply({ error: "origin_not_allowed" }, 403);
   if (request.method === "OPTIONS")

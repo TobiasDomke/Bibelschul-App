@@ -7,6 +7,7 @@ import '../core/editions.dart';
 import '../core/languages.dart';
 import '../core/pace.dart';
 import '../core/planner.dart';
+import '../core/reading_time.dart';
 import '../core/state.dart';
 import '../core/util.dart';
 import '../i18n/app_texts.dart';
@@ -19,7 +20,7 @@ import 'widgets.dart';
 
 /// What the setup hands back: the plan, chapters read before and whether the
 /// reader wants a daily reminder at `config.time`.
-typedef PlanChoice = ({Config config, List<int> previouslyRead, bool remind});
+typedef PlanChoice = ({Config config, List<int> previouslyRead, bool remind, int? previousSeconds});
 
 /// Plan setup. First a template (with the real daily reading time), then one
 /// page for start, earlier reading and reminder. "Own plan" opens the full
@@ -44,6 +45,9 @@ class _PlannerFormState extends State<PlannerForm> {
   bool remind = true;
   String end = '';
   List<int> previouslyRead = [];
+
+  /// Entered time for the chapters read before (null: estimated).
+  int? previousSeconds;
   late Config draft = _base();
   late final amountController = TextEditingController(text: '${draft.amount}');
   final _top = GlobalKey();
@@ -157,18 +161,29 @@ class _PlannerFormState extends State<PlannerForm> {
     try {
       if (!isBible52(submitted) && dateMode) submitted = planEndingOn(submitted, end);
       createPlan(submitted, previouslyRead);
-      widget.onSave((config: submitted, previouslyRead: previouslyRead, remind: remind));
+      widget.onSave((
+        config: submitted,
+        previouslyRead: previouslyRead,
+        remind: remind,
+        previousSeconds: previouslyRead.isEmpty ? null : previousSeconds,
+      ));
     } catch (_) {
       setState(() => draft = submitted);
     }
   }
 
   Future<void> _editPrevious(BuildContext context) async {
-    final result = await Navigator.of(context).push<List<int>>(MaterialPageRoute(
+    final result = await Navigator.of(context).push<(List<int>, int?)>(MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => _PreviousPage(config: config, value: previouslyRead, lang: widget.lang),
+      builder: (_) =>
+          _PreviousPage(config: config, value: previouslyRead, seconds: previousSeconds, lang: widget.lang),
     ));
-    if (result != null) setState(() => previouslyRead = result);
+    if (result != null) {
+      setState(() {
+        previouslyRead = result.$1;
+        previousSeconds = result.$2;
+      });
+    }
   }
 
   Future<void> _pickTime(BuildContext context) async {
@@ -422,6 +437,16 @@ class _PlannerFormState extends State<PlannerForm> {
             disabled: disabled,
             onChanged: (v) => setState(() => previouslyRead = v),
           ),
+          if (previouslyRead.isNotEmpty)
+            Panel(
+              padding: const EdgeInsets.all(14),
+              child: DurationFields(
+                seconds: previousSeconds,
+                lang: lang,
+                estimate: previousEstimate(c, previouslyRead, lang),
+                onChanged: (s) => previousSeconds = s,
+              ),
+            ),
         ],
         if (step == 2) ...[
           ..._timeFields(context, result),
@@ -668,9 +693,10 @@ class _PlannerFormState extends State<PlannerForm> {
 
 /// Full-screen picker for chapters read before the plan.
 class _PreviousPage extends StatefulWidget {
-  const _PreviousPage({required this.config, required this.value, required this.lang});
+  const _PreviousPage({required this.config, required this.value, required this.seconds, required this.lang});
   final Config config;
   final List<int> value;
+  final int? seconds;
   final Lang lang;
   @override
   State<_PreviousPage> createState() => _PreviousPageState();
@@ -678,6 +704,7 @@ class _PreviousPage extends StatefulWidget {
 
 class _PreviousPageState extends State<_PreviousPage> {
   late List<int> value = [...widget.value];
+  late int? seconds = widget.seconds;
 
   @override
   Widget build(BuildContext context) {
@@ -695,6 +722,18 @@ class _PreviousPageState extends State<_PreviousPage> {
           else
             PreviousPicker(
                 config: widget.config, value: value, lang: lang, onChanged: (x) => setState(() => value = x)),
+          if (value.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Panel(
+              padding: const EdgeInsets.all(14),
+              child: DurationFields(
+                seconds: seconds,
+                lang: lang,
+                estimate: previousEstimate(widget.config, value, lang),
+                onChanged: (s) => seconds = s,
+              ),
+            ),
+          ],
         ]),
       ),
       bottomNavigationBar: SafeArea(
@@ -703,10 +742,17 @@ class _PreviousPageState extends State<_PreviousPage> {
           child: Row(children: [
             Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: Text(t.cancel))),
             const SizedBox(width: 10),
-            Expanded(child: FilledButton(onPressed: () => Navigator.pop(context, value), child: Text(t.save))),
+            Expanded(child: FilledButton(onPressed: () => Navigator.pop(context, (value, seconds)), child: Text(t.save))),
           ]),
         ),
       ),
     );
   }
+}
+
+/// Estimated time for chapters read before, at the default pace (for hints).
+String previousEstimate(Config config, List<int> ids, Lang lang) {
+  final set = ids.toSet();
+  final chapters = [for (final c in scopeFor(config)) if (set.contains(c.id)) c];
+  return readingTime(chaptersSeconds(chapters, readingPace(null)), lang);
 }

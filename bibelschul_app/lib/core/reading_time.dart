@@ -54,7 +54,9 @@ class ReadingTimeSummary {
       this.remainingSeconds, this.totalSeconds, this.previousChapters, this.unmeasuredChapters, this.remainingChapters);
 }
 
-ReadingTimeSummary readingTimeSummary(ReadingState state, [int? now, ReadingPace? pace]) {
+/// [previousOverride]: time the reader entered for chapters read before the
+/// plan; without it that time is estimated.
+ReadingTimeSummary readingTimeSummary(ReadingState state, [int? now, ReadingPace? pace, int? previousOverride]) {
   final n = now ?? DateTime.now().millisecondsSinceEpoch;
   final p = pace ?? readingPace(state);
   final inventory = scopeFor(state.config);
@@ -96,7 +98,9 @@ ReadingTimeSummary readingTimeSummary(ReadingState state, [int? now, ReadingPace
   double estimate(List<Chapter> cs) => chaptersSeconds(cs, p);
   final int measuredSeconds = state.logs.fold<int>(0, (s, l) => s + l.seconds) +
       (state.timer != null ? max(0, ((n - state.timer!.startedAt) / 1000).floor()) : 0);
-  final previousSeconds = estimate(previousChapters);
+  final previousSeconds = previousOverride != null && previousChapters.isNotEmpty
+      ? previousOverride.toDouble()
+      : estimate(previousChapters);
   final unmeasuredSeconds = estimate(unmeasured);
   final remainingSeconds = estimate(remaining);
   final pastSeconds = measuredSeconds + previousSeconds + unmeasuredSeconds;

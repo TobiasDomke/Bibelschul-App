@@ -218,7 +218,7 @@ class StatsTab extends StatelessWidget {
       ),
       Panel(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-        child: Details(summary: u['timeDetails'], children: [ReadingTimeOverview(summary: v.timeSummary, lang: lang)]),
+        child: Details(summary: u['timeDetails'], children: [ReadingTimeOverview(summary: v.timeSummary, lang: lang, previousEntered: v.previousSecondsEntered != null)]),
       ),
     ]);
   }

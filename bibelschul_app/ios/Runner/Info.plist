@@ -6,10 +6,6 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Leseweg nutzt die Kamera nur, um den QR-Code eines gemeinsamen Leseplans zu scannen.</string>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

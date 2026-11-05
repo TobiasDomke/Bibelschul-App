@@ -57,7 +57,9 @@ class PlanView {
   late final ReadingState planState = prepareState(state, currentDate);
   late final List<Day> days = readingPlan(planState, currentDate);
   late final ReadingPace pace = readingPace(state);
-  late final ReadingTimeSummary timeSummary = readingTimeSummary(state, now, pace);
+  /// Time entered for reading before the plan (null: estimated).
+  late final int? previousSecondsEntered = c.prefs.previousSeconds(state.id);
+  late final ReadingTimeSummary timeSummary = readingTimeSummary(state, now, pace, previousSecondsEntered);
   late final int dateIndex = fixed ? bible52CurrentUnit(planState) : dayIndex(planState.config, currentDate);
   late final List<Chapter> scoped = scopeFor(state.config);
   late final int totalWords = scoped.fold(0, (s, c) => s + c.words);
@@ -150,13 +152,6 @@ class PlanView {
     } catch (_) {
       return pace;
     }
-  }
-
-  bool get backupDue {
-    final history = c.prefs.backupStatus(state.id);
-    return (sessions.length >= 3 ||
-            (state.done.isNotEmpty && now - dateAt(state.config.start).millisecondsSinceEpoch > 7 * 86400000)) &&
-        now - max(history.exported, history.snoozed) > 7 * 86400000;
   }
 
   static PlanView? of(AppController c) => c.state == null ? null : PlanView._(c, c.state!);

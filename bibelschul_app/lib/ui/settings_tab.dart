@@ -22,7 +22,9 @@ import '../services/reminders.dart';
 import 'bible52_weeks.dart';
 import 'book_order_control.dart';
 import 'dialogs.dart';
+import 'planner_form.dart' show previousEstimate;
 import 'previous_picker.dart';
+import 'sync_page.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -67,7 +69,7 @@ class SettingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = c.lang;
-    final t = text(lang), x = featureText(lang), f = bible52Text(lang);
+    final t = text(lang), x = featureText(lang), f = bible52Text(lang), u = ui(lang);
     final groups = <(IconData, String, String, List<Widget> Function(PlanView))>[
       (Icons.notifications_none, x['groupReminders'], x['groupRemindersSub'], (v) => [RemindersCard(c: c)]),
       (
@@ -107,11 +109,10 @@ class SettingsTab extends StatelessWidget {
               ),
             ]
       ),
-      (Icons.save_outlined, x['groupData'], x['groupDataSub'], (v) => [BackupCard(c: c), AutoBackupCard(c: c)]),
+      (Icons.cloud_sync_outlined, u['syncTitle'], c.sync.linked ? fill(u['syncSignedIn'], {'name': c.sync.account!.name}) : u['syncRowSub'], (v) => [SyncCard(c: c), ImportCard(c: c)]),
       (Icons.translate, x['groupAppearance'], x['groupAppearanceSub'], (v) => [_AppearanceCard(c: c, v: v)]),
       (Icons.info_outline, x['groupAbout'], x['groupAboutSub'], (v) => [_AboutCard(c: c, v: v)]),
     ];
-    final u = ui(lang);
     return Gap(space: 14, children: [
       Heading(t.settings, size: 26),
       Panel(
@@ -373,6 +374,7 @@ class _EditPrevious extends StatefulWidget {
 
 class _EditPreviousState extends State<_EditPrevious> {
   late List<int> previous = [...?widget.state.previouslyRead];
+  late int? seconds = widget.c.prefs.previousSeconds(widget.state.id);
 
   @override
   Widget build(BuildContext context) {
@@ -406,6 +408,18 @@ class _EditPreviousState extends State<_EditPrevious> {
                 disabled: c.busy,
                 onChanged: (x) => setState(() => previous = x),
               ),
+            if (previous.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Panel(
+                padding: const EdgeInsets.all(14),
+                child: DurationFields(
+                  seconds: seconds,
+                  lang: lang,
+                  estimate: previousEstimate(widget.state.config, previous, lang),
+                  onChanged: (s) => seconds = s,
+                ),
+              ),
+            ],
             if (c.error.isNotEmpty) ...[const SizedBox(height: 12), Notice(text: t.error, kind: NoticeKind.error)],
           ]),
         ),
@@ -423,7 +437,11 @@ class _EditPreviousState extends State<_EditPrevious> {
                       ? null
                       : () async {
                           final navigator = Navigator.of(context);
-                          if (await c.mutate({'action': 'previous', 'previouslyRead': previous}) != null) {
+                          final saved = await c.mutate({'action': 'previous', 'previouslyRead': previous});
+                          if (saved != null) {
+                            await c.prefs.setPreviousSeconds(saved.id, previous.isEmpty ? null : seconds);
+                            c.sync.markChanged();
+                            c.update(() {});
                             navigator.pop();
                           }
                         },
@@ -660,15 +678,17 @@ class _ScanPageState extends State<ScanPage> {
   }
 }
 
-/// Backup export and restore (app/backup-controls.tsx); includes notes.
-class BackupCard extends StatefulWidget {
-  const BackupCard({super.key, required this.c});
+/// Data from the web app (or an older backup file) can still be taken over.
+/// Leseweg itself keeps everything in the app and on the account's devices,
+/// so there are no backup files to save.
+class ImportCard extends StatefulWidget {
+  const ImportCard({super.key, required this.c});
   final AppController c;
   @override
-  State<BackupCard> createState() => _BackupCardState();
+  State<ImportCard> createState() => _ImportCardState();
 }
 
-class _BackupCardState extends State<BackupCard> {
+class _ImportCardState extends State<ImportCard> {
   bool working = false;
   String error = '';
 
@@ -676,63 +696,28 @@ class _BackupCardState extends State<BackupCard> {
   Widget build(BuildContext context) {
     final c = widget.c;
     final lang = c.lang;
-    final t = text(lang), e = experienceText(lang), n = nativeText(lang), x = featureText(lang);
-    final state = c.state;
-    final history = c.prefs.backupStatus(state?.id);
+    final n = nativeText(lang), x = featureText(lang), u = ui(lang);
     return Panel(
       child: Gap(children: [
-        Icon(Icons.save_outlined, color: context.palette.primary),
-        Heading(t.localData, size: 19),
-        Muted(n.localDataSub),
-        if (state != null)
-          FinePrint(history.exported > 0 ? '${e.lastExport}: ${Fmt(lang).dateTime(history.exported)}' : e.neverExport),
+        Heading(u['importTitle'], size: 17),
+        Muted(u['importHelp'], size: 13.5),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          if (state != null)
-            OutlinedButton.icon(
-              onPressed: c.busy || working
-                  ? null
-                  : () async {
-                      setState(() {
-                        error = '';
-                        working = true;
-                      });
-                      try {
-                        final latest = await c.store.read();
-                        if (latest == null) throw const AppError('backup');
-                        final ok = await shareFile(makeAppBackup(latest, lang, c.backupTheme, c.notes, null, c.groups.access),
-                            'leseweg-sicherung-${today(latest.config.timezone)}.json', 'application/json');
-                        if (!ok) throw const AppError('share');
-                        await c.prefs.recordBackup(latest.id, 'exported');
-                      } catch (_) {
-                        error = t.backupSaveError;
-                      } finally {
-                        if (mounted) setState(() => working = false);
-                      }
-                    },
-              icon: const Icon(Icons.ios_share, size: 17),
-              label: Text(t.backupSave),
-            ),
           OutlinedButton.icon(
             onPressed: c.busy || working ? null : () => _import(context),
             icon: const Icon(Icons.file_open_outlined, size: 17),
-            label: Text(t.backupLoad),
+            label: Text(u['importButton']),
           ),
+          if (c.notes.isNotEmpty)
+            OutlinedButton.icon(
+              onPressed: () async {
+                final ok = await shareFile(
+                    notesText(c.notes, 'Leseweg · ${x['notes']}'), 'leseweg-notizen.txt', 'text/plain');
+                if (!ok && context.mounted) _snack(context, n.shareFailed);
+              },
+              icon: const Icon(Icons.notes, size: 17),
+              label: Text('${x['exportNotes']} (${c.notes.length})'),
+            ),
         ]),
-        FinePrint('${n.backupNote} ${n.backupCaution}'),
-        FinePrint(n.importHelp),
-        if (c.notes.isNotEmpty) ...[
-          // Notes from earlier versions stay in backups and can still be exported.
-          OutlinedButton.icon(
-            onPressed: () async {
-              final ok = await shareFile(notesText(c.notes, 'Leseweg · ${x['notes']}'), 'leseweg-notizen.txt', 'text/plain');
-              if (!ok && context.mounted) _snack(context, n.shareFailed);
-            },
-            icon: const Icon(Icons.notes, size: 17),
-            label: Text('${x['exportNotes']} (${c.notes.length})'),
-          ),
-          FinePrint(x['backupNotesHint']),
-        ],
-        if (c.groups.joined) FinePrint(ui(lang)['backupGroupsHint']),
         if (error.isNotEmpty) Notice(text: error, kind: NoticeKind.error),
       ]),
     );
@@ -800,12 +785,20 @@ class _ExistingPlanCardState extends State<ExistingPlanCard> {
   Widget build(BuildContext context) {
     final c = widget.c;
     final lang = c.lang;
-    final u = ui(lang), t = text(lang);
+    final u = ui(lang);
     final join = JoinPlanCard(c: c);
     return Panel(
       child: Gap(space: 10, children: [
         Heading(u['existing'], size: 17),
         Muted(u['existingHelp'], size: 13.5),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: c.busy ? null : () => linkDevice(context, c),
+            icon: const Icon(Icons.link, size: 18),
+            label: Text(u['syncLink']),
+          ),
+        ),
         Wrap(spacing: 8, runSpacing: 8, children: [
           OutlinedButton.icon(
             onPressed: c.busy
@@ -815,7 +808,7 @@ class _ExistingPlanCardState extends State<ExistingPlanCard> {
                     if (mounted) setState(() => error = failed ?? '');
                   },
             icon: const Icon(Icons.file_open_outlined, size: 18),
-            label: Text(t.backupLoad),
+            label: Text(u['importButton']),
           ),
           OutlinedButton.icon(
             onPressed: c.busy ? null : () => join.scan(context),
@@ -829,28 +822,6 @@ class _ExistingPlanCardState extends State<ExistingPlanCard> {
           ),
         ]),
         if (error.isNotEmpty) Notice(text: error, kind: NoticeKind.error),
-      ]),
-    );
-  }
-}
-
-class AutoBackupCard extends StatelessWidget {
-  const AutoBackupCard({super.key, required this.c});
-  final AppController c;
-  @override
-  Widget build(BuildContext context) {
-    final x = featureText(c.lang);
-    final last = c.prefs.lastAutoBackup;
-    return Panel(
-      child: Gap(children: [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(x['autoBackup'], style: const TextStyle(fontWeight: FontWeight.w600)),
-          value: c.prefs.autoBackup,
-          onChanged: c.setAutoBackup,
-        ),
-        Muted(x['autoBackupHelp'], size: 13),
-        FinePrint(last > 0 ? fill(x['autoBackupLast'], {'date': Fmt(c.lang).dateTime(last)}) : x['autoBackupNone']),
       ]),
     );
   }

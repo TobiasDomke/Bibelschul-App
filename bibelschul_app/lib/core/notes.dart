@@ -90,24 +90,28 @@ List<ReadingNote> parseNotes(Object? raw) {
 typedef GroupAccess = ({String token, String name});
 
 class AppBackup {
-  const AppBackup(this.backup, this.notes, [this.groups]);
+  const AppBackup(this.backup, this.notes, [this.groups, this.previousSeconds]);
   final Backup backup;
   final List<ReadingNote> notes;
   final GroupAccess? groups;
+
+  /// Entered time for the reading before the plan, if any.
+  final int? previousSeconds;
 }
 
 /// Version 8 (web-compatible) without notes or groups; version 9 adds a
 /// `notes` list and, for members of reading groups, a `groups` entry.
 String makeAppBackup(ReadingState state, Lang lang, String theme, List<ReadingNote> notes,
-    [int? nowMs, GroupAccess? groups]) {
+    [int? nowMs, GroupAccess? groups, int? previousSeconds]) {
   final json = makeBackup(state, lang, theme, nowMs);
-  if (notes.isEmpty && groups == null) return json;
+  if (notes.isEmpty && groups == null && previousSeconds == null) return json;
   final data = jsonDecode(json) as Map<String, Object?>;
   return const JsonEncoder.withIndent('  ').convert({
     ...data,
     'version': 9,
     'notes': [for (final n in notes) n.toJson()],
     if (groups != null) 'groups': {'token': groups.token, 'name': groups.name},
+    'previousSeconds': ?previousSeconds,
   });
 }
 
@@ -136,8 +140,10 @@ AppBackup parseAppBackup(String raw) {
     final data = Map<String, Object?>.from(json.cast<String, Object?>());
     final notes = parseNotes(data.remove('notes'));
     final groups = _parseGroups(data.remove('groups'));
+    final previous = data.remove('previousSeconds');
+    if (previous != null && (previous is! int || previous < 0 || previous > 36000000)) throw const AppError('backup');
     data['version'] = 8;
-    return AppBackup(parseBackup(jsonEncode(data)), notes, groups);
+    return AppBackup(parseBackup(jsonEncode(data)), notes, groups, previous as int?);
   }
   return AppBackup(parseBackup(raw), const []);
 }

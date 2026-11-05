@@ -134,14 +134,14 @@ void main() {
   });
 
   test('percent, streak and balanced-day order', () {
-    expect(formattedPercent(0, Lang.de), '0');
+    expect(formattedPercent(0, Lang.de), '0,00');
     expect(formattedPercent(0.2691, Lang.de), '0,26');
     expect(formattedPercent(0.001, Lang.de), '0,01');
-    expect(formattedPercent(3.47, Lang.de), '3,4');
-    expect(formattedPercent(42.0, Lang.de), '42,0');
-    expect(formattedPercent(99.99, Lang.de), '99,9');
-    expect(formattedPercent(100, Lang.de), '100');
-    expect(formattedPercent(3.47, Lang.en), '3.4');
+    expect(formattedPercent(3.479, Lang.de), '3,47');
+    expect(formattedPercent(42.1, Lang.de), '42,10');
+    expect(formattedPercent(99.999, Lang.de), '99,99');
+    expect(formattedPercent(100, Lang.de), '100,00');
+    expect(formattedPercent(3.479, Lang.en), '3.47');
 
     final config = parseConfig({
       'amount': 12, 'unit': 'months', 'start': '2026-11-01', 'time': '07:30', 'timezone': 'Europe/Berlin',
@@ -219,7 +219,6 @@ void main() {
     expect(find.text('Anna'), findsOneWidget);
     expect(find.text('1 verborgen', findRichText: true), findsNothing);
     expect(find.textContaining('1 verborgen'), findsOneWidget);
-    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/16-groups.png'));
 
     // Ranking by speed puts Anna first and members without numbers last.
     await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Tempo'));

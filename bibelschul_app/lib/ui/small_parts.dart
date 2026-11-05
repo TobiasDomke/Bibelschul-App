@@ -6,6 +6,7 @@ import '../core/languages.dart';
 import '../core/planner.dart';
 import '../core/reading_time.dart';
 import '../core/state.dart';
+import '../i18n/app_texts.dart';
 import '../i18n/i18n.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -72,9 +73,12 @@ class ChapterCorrectionNotice extends StatelessWidget {
 
 /// Reading time until the goal (app/reading-time-overview.tsx).
 class ReadingTimeOverview extends StatelessWidget {
-  const ReadingTimeOverview({super.key, required this.summary, required this.lang});
+  const ReadingTimeOverview({super.key, required this.summary, required this.lang, this.previousEntered = false});
   final ReadingTimeSummary summary;
   final Lang lang;
+
+  /// The earlier reading time was entered by the reader, not estimated.
+  final bool previousEntered;
   @override
   Widget build(BuildContext context) {
     final t = readingTimeText(lang), p = planText(lang);
@@ -100,7 +104,8 @@ class ReadingTimeOverview extends StatelessWidget {
       child: Gap(children: [
         Heading(t.title, size: 19),
         Column(children: [
-          row(p.estimatedPast, summary.previousSeconds),
+          if (summary.previousChapters > 0 || previousEntered)
+            row(previousEntered ? ui(lang)['pastEntered'] : p.estimatedPast, summary.previousSeconds),
           if (summary.unmeasuredChapters > 0) row(t.unmeasured, summary.unmeasuredSeconds),
           row(t.past, summary.pastSeconds, strong: true),
           row(t.remaining, summary.remainingSeconds,
@@ -133,17 +138,14 @@ class DateSquare extends StatelessWidget {
   }
 }
 
-/// Percent with as many decimals as the stage needs: "0,27" at the start,
-/// "3,4" later, never "100" before the last chapter and never a bare "0" once
-/// something was read.
+/// Percent with two decimals ("0,27", "42,10"). Rounded down, so the display
+/// never runs ahead of the reading: never "100" before the last chapter and
+/// never "0,00" once something was read.
 String formattedPercent(double percent, Lang lang) {
-  if (percent <= 0) return '0';
-  if (percent >= 100) return '100';
-  final decimals = percent < 1 ? 2 : 1;
-  final factor = decimals == 2 ? 100 : 10;
-  // Round down so the display never runs ahead of the reading.
-  var value = (percent * factor).floor() / factor;
-  if (value <= 0) value = 1 / factor;
-  if (value >= 100) value = 100 - 1 / factor;
-  return NumberFormat.decimalPatternDigits(locale: locales[lang], decimalDigits: decimals).format(value);
+  if (percent <= 0) return NumberFormat.decimalPatternDigits(locale: locales[lang], decimalDigits: 2).format(0);
+  if (percent >= 100) return NumberFormat.decimalPatternDigits(locale: locales[lang], decimalDigits: 2).format(100);
+  var value = (percent * 100).floor() / 100;
+  if (value <= 0) value = 0.01;
+  if (value >= 100) value = 99.99;
+  return NumberFormat.decimalPatternDigits(locale: locales[lang], decimalDigits: 2).format(value);
 }
