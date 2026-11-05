@@ -13,7 +13,9 @@ class FeatureTexts {
 }
 
 /// Text genre for reflection questions, by book index (0 = Genesis … 65 = Revelation).
+/// Genesis is told as history; Acts continues the story of the church.
 String genreOfBook(int bookIndex) {
+  if (bookIndex == 0 || bookIndex == 43) return 'history';
   if (bookIndex <= 4) return 'law';
   if (bookIndex <= 16) return 'history';
   if (bookIndex == 18) return 'psalms';

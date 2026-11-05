@@ -133,4 +133,10 @@ class DateSquare extends StatelessWidget {
   }
 }
 
-String formattedPercent(double percent, Lang lang) => Fmt(lang).number(percent);
+/// Whole percent; "< 1" right at the start and never "100" before the last chapter.
+String formattedPercent(double percent, Lang lang) {
+  if (percent <= 0) return '0';
+  if (percent < 1) return '< 1';
+  if (percent < 100) return Fmt(lang).number(percent.floor().clamp(1, 99));
+  return '100';
+}

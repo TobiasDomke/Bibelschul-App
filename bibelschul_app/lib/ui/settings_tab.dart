@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../app/controller.dart';
@@ -12,6 +13,7 @@ import '../core/plan_code.dart';
 import '../core/planner.dart';
 import '../core/state.dart';
 import '../core/util.dart';
+import '../i18n/app_texts.dart';
 import '../i18n/feature_texts.dart';
 import '../i18n/i18n.dart';
 import '../i18n/native_texts.dart';
@@ -109,8 +111,8 @@ class SettingsTab extends StatelessWidget {
       (Icons.translate, x['groupAppearance'], x['groupAppearanceSub'], (v) => [_AppearanceCard(c: c, v: v)]),
       (Icons.info_outline, x['groupAbout'], x['groupAboutSub'], (v) => [_AboutCard(c: c, v: v)]),
     ];
+    final u = ui(lang);
     return Gap(space: 14, children: [
-      const Eyebrow('LESEWEG'),
       Heading(t.settings, size: 26),
       Panel(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -127,7 +129,19 @@ class SettingsTab extends StatelessWidget {
           ],
         ]),
       ),
-      Muted(editionName(v.state.config.edition)),
+      Panel(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: ListTile(
+          leading: Icon(Icons.groups_outlined, color: context.palette.primary),
+          title: Text(u['groupsTitle'], style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(u['groupsRowSub']),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => c.update(() {
+            c.tab = 'stats';
+            c.statsView = 'groups';
+          }),
+        ),
+      ),
     ]);
   }
 }
@@ -193,12 +207,15 @@ class _RemindersCardState extends State<RemindersCard> {
           icon: const Icon(Icons.schedule, size: 18),
           label: Text(c.reminderTime),
         ),
-        LabeledDropdown<String>(
-          label: t.timezone,
-          value: c.zone,
-          items: [for (final z in zones) (z, z)],
-          onChanged: (z) => c.update(() => c.zone = z),
-        ),
+        Details(summary: '${t.timezone}: ${c.zone}', children: [
+          Muted(ui(lang)['zoneHelp'], size: 13),
+          LabeledDropdown<String>(
+            label: t.timezone,
+            value: c.zone,
+            items: [for (final z in zones) (z, z)],
+            onChanged: (z) => c.update(() => c.zone = z),
+          ),
+        ]),
         if (changed) FilledButton(onPressed: c.busy ? null : save, child: Text(c.busy ? t.saving : t.save)),
         const Divider(),
         SwitchListTile(
@@ -238,13 +255,13 @@ class _RemindersCardState extends State<RemindersCard> {
             ),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(
-              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            child: OutlinedButton.icon(
               onPressed: () async {
                 await Reminders.instance.showTest(lang);
                 setState(() => status = n.testShown);
               },
-              child: Text(push.test),
+              icon: const Icon(Icons.notifications_active_outlined, size: 18),
+              label: Text(push.test),
             ),
           ),
         ],
@@ -288,7 +305,7 @@ class _EditionCard extends StatelessWidget {
             }
           },
         ),
-        FinePrint(e.editionHelp),
+        FinePrint(ui(lang)['editionHelp']),
         if (state.editionReview?.isNotEmpty ?? false)
           Notice(
             kind: NoticeKind.warning,
@@ -448,6 +465,9 @@ class _SharePlanCardState extends State<SharePlanCard> {
       return encodePlanCode(widget.state.config, name.text);
     }
 
+    // A link: the phone camera opens the Leseweg page instead of showing raw text.
+    String link() => 'https://leseweg.pages.dev/#plan=${code()}';
+
     return Panel(
       child: Gap(children: [
         Icon(Icons.groups_outlined, color: context.palette.primary),
@@ -461,11 +481,12 @@ class _SharePlanCardState extends State<SharePlanCard> {
         Wrap(spacing: 8, runSpacing: 8, children: [
           FilledButton.icon(
             onPressed: () {
-              final value = code();
+              final value = link();
               showDialog<void>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: Text(name.text.trim().isEmpty ? x['share'] : name.text.trim()),
+                  actionsOverflowDirection: VerticalDirection.up,
                   content: SizedBox(
                     width: 280,
                     child: Gap(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -474,7 +495,7 @@ class _SharePlanCardState extends State<SharePlanCard> {
                         padding: const EdgeInsets.all(8),
                         child: QrImageView(data: value, size: 240, backgroundColor: Colors.white),
                       ),
-                      Text(x['shareQrHelp'], textAlign: TextAlign.center),
+                      Text(ui(c.lang)['shareQrHelp'], textAlign: TextAlign.center),
                     ]),
                   ),
                   actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(x['close']))],
@@ -486,7 +507,7 @@ class _SharePlanCardState extends State<SharePlanCard> {
           ),
           OutlinedButton.icon(
             onPressed: () async {
-              final ok = await shareText('${x['shareMessage']}\n\n${code()}');
+              final ok = await shareText('${x['shareMessage']}\n\n${code()}\n${link()}');
               if (!ok && context.mounted) _snack(context, nativeText(c.lang).shareFailed);
             },
             icon: const Icon(Icons.ios_share, size: 18),
@@ -533,7 +554,7 @@ class JoinPlanCard extends StatelessWidget {
     if (created != null && context.mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  Future<void> _paste(BuildContext context) async {
+  Future<void> paste(BuildContext context) async {
     final x = featureText(c.lang);
     final clip = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
     if (!context.mounted) return;
@@ -558,6 +579,14 @@ class JoinPlanCard extends StatelessWidget {
     if (raw != null && raw.trim().isNotEmpty && context.mounted) await _use(context, raw);
   }
 
+  Future<void> scan(BuildContext context) async {
+    final raw = await Navigator.of(context).push<String>(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => ScanPage(lang: c.lang, accept: (v) => v.contains('LESEWEG1.')),
+    ));
+    if (raw != null && context.mounted) await _use(context, raw);
+  }
+
   @override
   Widget build(BuildContext context) {
     final x = featureText(c.lang);
@@ -568,20 +597,12 @@ class JoinPlanCard extends StatelessWidget {
         Muted(x['joinHelp']),
         Wrap(spacing: 8, runSpacing: 8, children: [
           OutlinedButton.icon(
-            onPressed: c.busy
-                ? null
-                : () async {
-                    final raw = await Navigator.of(context).push<String>(MaterialPageRoute(
-                      fullscreenDialog: true,
-                      builder: (_) => _ScanPage(lang: c.lang),
-                    ));
-                    if (raw != null && context.mounted) await _use(context, raw);
-                  },
+            onPressed: c.busy ? null : () => scan(context),
             icon: const Icon(Icons.qr_code_scanner, size: 18),
             label: Text(x['joinScan']),
           ),
           OutlinedButton.icon(
-            onPressed: c.busy ? null : () => _paste(context),
+            onPressed: c.busy ? null : () => paste(context),
             icon: const Icon(Icons.content_paste, size: 18),
             label: Text(x['joinPaste']),
           ),
@@ -591,14 +612,16 @@ class JoinPlanCard extends StatelessWidget {
   }
 }
 
-class _ScanPage extends StatefulWidget {
-  const _ScanPage({required this.lang});
+/// Camera page that returns the first QR code [accept] likes.
+class ScanPage extends StatefulWidget {
+  const ScanPage({super.key, required this.lang, required this.accept});
   final Lang lang;
+  final bool Function(String value) accept;
   @override
-  State<_ScanPage> createState() => _ScanPageState();
+  State<ScanPage> createState() => _ScanPageState();
 }
 
-class _ScanPageState extends State<_ScanPage> {
+class _ScanPageState extends State<ScanPage> {
   bool done = false;
 
   @override
@@ -612,7 +635,7 @@ class _ScanPageState extends State<_ScanPage> {
             if (done) return;
             for (final barcode in capture.barcodes) {
               final value = barcode.rawValue;
-              if (value != null && value.contains('LESEWEG1.')) {
+              if (value != null && widget.accept(value)) {
                 done = true;
                 Navigator.pop(context, value);
                 return;
@@ -676,7 +699,7 @@ class _BackupCardState extends State<BackupCard> {
                       try {
                         final latest = await c.store.read();
                         if (latest == null) throw const AppError('backup');
-                        final ok = await shareFile(makeAppBackup(latest, lang, c.theme, c.notes),
+                        final ok = await shareFile(makeAppBackup(latest, lang, c.backupTheme, c.notes),
                             'leseweg-sicherung-${today(latest.config.timezone)}.json', 'application/json');
                         if (!ok) throw const AppError('share');
                         await c.prefs.recordBackup(latest.id, 'exported');
@@ -704,40 +727,98 @@ class _BackupCardState extends State<BackupCard> {
   }
 
   Future<void> _import(BuildContext context) async {
-    final c = widget.c;
-    final lang = c.lang;
-    final t = text(lang);
     setState(() {
       error = '';
       working = true;
     });
-    AppBackup? backup;
-    try {
-      backup = await pickBackup();
-    } catch (_) {
-      error = t.backupInvalid;
+    final failed = await importBackupFlow(context, widget.c);
+    if (mounted) {
+      setState(() {
+        working = false;
+        error = failed ?? '';
+      });
     }
-    if (mounted) setState(() => working = false);
-    if (backup == null || !context.mounted) return;
-    final b = backup.backup;
-    final ok = await confirmDialog(
-      context,
-      title: t.backupRestoreTitle,
-      body: t.backupRestoreText,
-      extra: Text('${Fmt(lang).date(b.exportedAt.substring(0, 10))} · ${editionName(b.state.config.edition)} · '
-          '${b.state.done.length + (b.state.previouslyRead?.length ?? 0)} ${t.chapters} · ${t.read}'),
-      confirm: t.backupRestore,
-      cancel: t.cancel,
+  }
+}
+
+/// Picks a backup file, asks for confirmation and restores it. Returns an
+/// error text, or null when it worked or was cancelled.
+Future<String?> importBackupFlow(BuildContext context, AppController c) async {
+  final lang = c.lang;
+  final t = text(lang);
+  AppBackup? backup;
+  try {
+    backup = await pickBackup();
+  } catch (_) {
+    return t.backupInvalid;
+  }
+  if (backup == null || !context.mounted) return null;
+  final b = backup.backup;
+  final ok = await confirmDialog(
+    context,
+    title: t.backupRestoreTitle,
+    body: t.backupRestoreText,
+    extra: Text('${Fmt(lang).date(b.exportedAt.substring(0, 10))} · ${editionName(b.state.config.edition)} · '
+        '${b.state.done.length + (b.state.previouslyRead?.length ?? 0)} ${t.chapters} · ${t.read}'),
+    confirm: t.backupRestore,
+    cancel: t.cancel,
+  );
+  if (!ok) return null;
+  try {
+    await c.restoreBackup(backup);
+    return null;
+  } catch (_) {
+    return t.backupSaveError;
+  }
+}
+
+/// On the start screen: bring back a backup or take over a group's plan,
+/// without filling the page with both full cards.
+class ExistingPlanCard extends StatefulWidget {
+  const ExistingPlanCard({super.key, required this.c});
+  final AppController c;
+  @override
+  State<ExistingPlanCard> createState() => _ExistingPlanCardState();
+}
+
+class _ExistingPlanCardState extends State<ExistingPlanCard> {
+  String error = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.c;
+    final lang = c.lang;
+    final u = ui(lang), t = text(lang);
+    final join = JoinPlanCard(c: c);
+    return Panel(
+      child: Gap(space: 10, children: [
+        Heading(u['existing'], size: 17),
+        Muted(u['existingHelp'], size: 13.5),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(
+            onPressed: c.busy
+                ? null
+                : () async {
+                    final failed = await importBackupFlow(context, c);
+                    if (mounted) setState(() => error = failed ?? '');
+                  },
+            icon: const Icon(Icons.file_open_outlined, size: 18),
+            label: Text(t.backupLoad),
+          ),
+          OutlinedButton.icon(
+            onPressed: c.busy ? null : () => join.scan(context),
+            icon: const Icon(Icons.qr_code_scanner, size: 18),
+            label: Text(u['scanPlan']),
+          ),
+          OutlinedButton.icon(
+            onPressed: c.busy ? null : () => join.paste(context),
+            icon: const Icon(Icons.content_paste, size: 18),
+            label: Text(u['pastePlan']),
+          ),
+        ]),
+        if (error.isNotEmpty) Notice(text: error, kind: NoticeKind.error),
+      ]),
     );
-    if (!ok) return;
-    setState(() => working = true);
-    try {
-      await c.restoreBackup(backup);
-    } catch (_) {
-      error = t.backupSaveError;
-    } finally {
-      if (mounted) setState(() => working = false);
-    }
   }
 }
 
@@ -770,7 +851,7 @@ class _AppearanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = c.lang;
-    final t = text(lang), e = experienceText(lang), f = bible52Text(lang);
+    final t = text(lang);
     final s = v.state;
     return Panel(
       child: Gap(children: [
@@ -784,12 +865,12 @@ class _AppearanceCard extends StatelessWidget {
         LabeledDropdown<String>(
           label: t.theme,
           value: c.theme,
-          items: [('light', t.light), ('dark', t.dark)],
+          items: [('system', ui(lang)['themeSystem']), ('light', t.light), ('dark', t.dark)],
           onChanged: c.setTheme,
         ),
-        FinePrint(v.fixed ? f.fixed : e.editionHelp),
         if (!v.fixed)
-          Details(summary: e.advanced, children: [
+          Details(summary: ui(lang)['bookOrder'], children: [
+            Muted(ui(lang)['bookOrderHelp'], size: 13),
             BookOrderControl(
               config: s.config,
               lang: lang,
@@ -826,6 +907,12 @@ class _AboutCard extends StatelessWidget {
         if (!v.fixed && v.state.config.order == 'chronological') section(p.chronological, [p.contextNote]),
         const FinePrint('Wortzahlen: Luther 1912 · Public Domain · github.com/midvash/bible-data'),
         FinePrint('Bibelleseplan 52: ${f.description}'),
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, info) => info.hasData
+              ? FinePrint('Leseweg · ${fill(ui(lang)['version'], {'version': '${info.data!.version} (${info.data!.buildNumber})'})}')
+              : const SizedBox.shrink(),
+        ),
       ]),
     );
   }

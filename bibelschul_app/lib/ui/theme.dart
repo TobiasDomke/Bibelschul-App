@@ -100,6 +100,7 @@ ThemeData buildTheme(Brightness brightness) {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
+      titleTextStyle: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: p.foreground),
     ),
     cardTheme: CardThemeData(
       color: p.card,
@@ -151,8 +152,22 @@ ThemeData buildTheme(Brightness brightness) {
           TextStyle(color: p.foreground, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: -0.3)),
       iconTheme: WidgetStatePropertyAll(IconThemeData(color: p.foreground)),
     ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? p.primary : p.card),
+        foregroundColor:
+            WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? p.onPrimary : p.foreground),
+        side: WidgetStatePropertyAll(BorderSide(color: p.border)),
+      ),
+    ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: p.primary, linearTrackColor: p.muted),
-    dialogTheme: DialogThemeData(backgroundColor: p.card, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+    dialogTheme: DialogThemeData(
+      backgroundColor: p.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.foreground, height: 1.25),
+      contentTextStyle: TextStyle(fontSize: 15, color: p.foreground, height: 1.4),
+    ),
+    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
   );
 }
 

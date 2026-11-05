@@ -87,13 +87,15 @@ void main() {
     await tester.pumpAndSettle();
 
     // Setup wizard.
-    expect(find.text('Dein Plan, dein Einstieg'), findsOneWidget);
+    expect(find.text('Was möchtest du lesen?'), findsOneWidget);
     await _shot(tester, '01-setup');
+    await _tap(tester, find.text('Eigenen Plan zusammenstellen'));
+    await _shot(tester, '01b-setup-custom');
     await _tap(tester, find.widgetWithText(FilledButton, 'Weiter'));
     await _shot(tester, '02-setup-previous');
     await _tap(tester, find.widgetWithText(FilledButton, 'Weiter'));
     await _shot(tester, '03-setup-period');
-    await _tap(tester, find.widgetWithText(FilledButton, 'Meinen Leseplan erstellen'), real: true);
+    await _tap(tester, find.widgetWithText(FilledButton, 'Plan starten'), real: true);
     expect(c.state, isNotNull);
     expect(find.textContaining('Tag 1 /'), findsOneWidget);
     await _shot(tester, '04-today');
@@ -108,14 +110,16 @@ void main() {
 
     // Finish in one step. A one-second measurement is unusual, so the app asks
     // only whether it should train the forecast.
-    await _tap(tester, find.widgetWithText(FilledButton, 'Lesen beenden'), real: true);
-    expect(find.text('Ungewöhnliche Messung'), findsOneWidget);
+    await _tap(tester, find.widgetWithText(OutlinedButton, 'Nur 1 abgehakte speichern'), real: true);
+    expect(find.text('Stimmt diese Lesezeit?'), findsOneWidget);
     await _shot(tester, '06-unusual-measurement');
-    await _tap(tester, find.widgetWithText(TextButton, 'Nicht verwenden'), real: true);
+    await _tap(tester, find.widgetWithText(TextButton, 'Nein, nicht mitzählen'), real: true);
     expect(c.state!.timer, isNull);
     expect(c.state!.sessions, hasLength(1));
     expect(c.state!.adaptive!.finished, contains(0));
     expect(c.state!.pace!.samples.single.review, 'excluded');
+    // The saved message names the chapters that moved to the next days.
+    expect(find.textContaining('nicht gelesene Kapitel'), findsOneWidget);
 
     // A note for the finished unit.
     await _tap(tester, find.widgetWithText(TextButton, 'Gedanken notieren'));
@@ -136,6 +140,23 @@ void main() {
       await tester.pumpAndSettle();
       await _shot(tester, name);
     }
+
+    // Reading groups live next to the own statistics.
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Statistik')));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.text('Gruppen'));
+    await _shot(tester, '08b-groups-intro');
+    await _tap(tester, find.text('Meine Zahlen'));
+
+    // A plan day opens as a sheet instead of leaving the plan.
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Leseplan')));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.descendant(of: find.byType(CircleAvatar), matching: find.text('3')));
+    await _shot(tester, '07c-plan-day');
+    await tester.tapAt(const Offset(20, 60));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Einstellungen')));
+    await tester.pumpAndSettle();
 
     // Settings groups open their own pages.
     await _tap(tester, find.text('Erinnerungen'));
@@ -189,8 +210,9 @@ void main() {
     await tester.runAsync(c.start);
     await tester.pumpAndSettle();
     // Quick-start template: one tap fills the plan and jumps to the preview.
-    await _tap(tester, find.widgetWithText(ListTile, 'Bibelleseplan 52'));
-    await _tap(tester, find.widgetWithText(FilledButton, 'Meinen Leseplan erstellen'), real: true);
+    await _tap(tester, find.text('Bibelleseplan 52'));
+    await _shot(tester, '12a-bible52-setup');
+    await _tap(tester, find.widgetWithText(FilledButton, 'Plan starten'), real: true);
     expect(c.state!.config.template, 'bible52');
     expect(find.textContaining('Woche 1'), findsWidgets);
     await _shot(tester, '12-bible52-today');
@@ -213,12 +235,12 @@ void main() {
     await tester.pumpWidget(LesewegApp(controller: c));
     await tester.runAsync(c.start);
     await tester.pumpAndSettle();
-    await _tap(tester, find.widgetWithText(ListTile, 'Neues Testament in 90 Tagen'));
-    await _tap(tester, find.widgetWithText(FilledButton, 'Meinen Leseplan erstellen'), real: true);
+    await _tap(tester, find.text('Neues Testament in 90 Tagen'));
+    await _tap(tester, find.widgetWithText(FilledButton, 'Plan starten'), real: true);
     expect(c.state!.config.scope, 'nt');
     expect(c.state!.config.amount, 90);
     final today = c.state!.adaptive!.days[0];
-    await _tap(tester, find.widgetWithText(OutlinedButton, 'Alles gelesen'), real: true);
+    await _tap(tester, find.widgetWithText(FilledButton, 'Alles gelesen – abschließen'), real: true);
     expect(today.every(c.state!.done.containsKey), isTrue);
     expect(c.state!.adaptive!.finished, contains(0));
     await _shot(tester, '14-read-all');

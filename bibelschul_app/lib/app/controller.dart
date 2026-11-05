@@ -6,6 +6,7 @@ import '../core/insights.dart';
 import '../core/languages.dart';
 import '../core/notes.dart';
 import '../core/plan_code.dart';
+import '../core/planner.dart';
 import '../core/state.dart';
 import '../core/util.dart';
 import '../i18n/feature_texts.dart';
@@ -15,6 +16,7 @@ import '../services/native_bridge.dart';
 import '../services/preferences.dart';
 import '../services/reminders.dart';
 import '../services/storage.dart';
+import 'groups.dart';
 import 'plan_view.dart';
 
 enum LoadStatus { loading, ready, error }
@@ -30,18 +32,25 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     this.autoBackups,
     this.native = true,
   })  : lang = prefs.lang ?? systemLang,
-        theme = prefs.theme == 'dark' ? 'dark' : 'light';
+        theme = const ['light', 'dark'].contains(prefs.theme) ? prefs.theme! : 'system';
 
   final ReadingStore store;
   final Preferences prefs;
   final String deviceZone;
   final AutoBackup? autoBackups;
 
+  /// Reading groups (opt-in; nothing is sent before creating or joining one).
+  late GroupsController groups = GroupsController(prefs.store);
+
   /// False in tests: no notifications, widget or live activity.
   final bool native;
 
   Lang lang;
+  /// "system" (follow the device), "light" or "dark".
   String theme;
+
+  /// Backups keep the web app's format, which only knows light and dark.
+  String get backupTheme => theme == 'dark' ? 'dark' : 'light';
   ReadingState? state;
   List<ReadingNote> notes = [];
   LoadStatus status = LoadStatus.loading;
@@ -52,7 +61,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// "", "timer", "changed", "save"
   String error = '';
+  /// Chapters left unchecked by the last finished unit (shown in the saved message).
+  List<Chapter> moved = const [];
   String tab = 'today';
+
+  /// Statistics tab: "me" or "groups".
+  String statsView = 'me';
   int? selected;
   int page = 0;
   bool newPlan = false;
@@ -171,14 +185,16 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Finishes the current unit in one step (the web app asked again in a dialog).
-  Future<ReadingState?> finish(int day, {String? paceChoice}) async {
+  Future<ReadingState?> finish(int day, {String? paceChoice, List<Chapter> moved = const []}) async {
     final fixed = state?.config.template == 'bible52';
+    this.moved = fixed ? const [] : moved;
     final updated = await mutate({'action': 'complete', 'day': day, 'paceChoice': ?paceChoice});
     if (updated != null) {
       update(() {
         message = fixed ? 'saved' : 'replanned';
         selected = null;
       });
+      if (native) unawaited(groups.pushStats(PlanView.of(this)));
     }
     return updated;
   }
@@ -206,7 +222,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     state = value;
     lang = value.lang;
     prefs.lang = value.lang;
-    setTheme(newTheme);
+    // Someone following the device appearance keeps doing so after a restore.
+    if (theme != 'system') setTheme(newTheme);
     reminderTime = value.config.time;
     zone = value.config.timezone;
     selected = null;
@@ -344,7 +361,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (s == null) return;
     if (backup && prefs.autoBackup && autoBackups != null) {
       try {
-        await autoBackups!.write(s, lang, theme, notes);
+        await autoBackups!.write(s, lang, backupTheme, notes);
         prefs.lastAutoBackup = DateTime.now().millisecondsSinceEpoch;
       } catch (_) {}
     }

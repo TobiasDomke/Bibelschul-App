@@ -5,6 +5,7 @@ import '../app/plan_view.dart';
 import '../core/languages.dart';
 import '../core/state.dart';
 import '../core/util.dart';
+import '../i18n/app_texts.dart';
 import '../i18n/i18n.dart';
 import '../i18n/feature_texts.dart';
 import 'notes_ui.dart';
@@ -50,24 +51,26 @@ class Home extends StatelessWidget {
             ]),
           ),
         ]),
+        // The language matters most before a plan exists; afterwards it lives in the settings.
         actions: [
-          PopupMenuButton<Lang>(
-            tooltip: t.language,
-            enabled: !c.busy && c.status == LoadStatus.ready,
-            initialValue: lang,
-            onSelected: c.changeLanguage,
-            itemBuilder: (_) => [
-              for (final l in Lang.values) PopupMenuItem(value: l, child: Text(languageLabels[l]!)),
-            ],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(children: [
-                const Icon(Icons.language, size: 20),
-                const SizedBox(width: 4),
-                Text(lang.name.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w700)),
-              ]),
+          if (!showTabs)
+            PopupMenuButton<Lang>(
+              tooltip: t.language,
+              enabled: !c.busy && c.status == LoadStatus.ready,
+              initialValue: lang,
+              onSelected: c.changeLanguage,
+              itemBuilder: (_) => [
+                for (final l in Lang.values) PopupMenuItem(value: l, child: Text(languageLabels[l]!)),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(children: [
+                  const Icon(Icons.language, size: 20),
+                  const SizedBox(width: 4),
+                  Text(lang.name.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w700)),
+                ]),
+              ),
             ),
-          ),
         ],
       ),
       bottomNavigationBar: showTabs
@@ -110,7 +113,7 @@ class Home extends StatelessWidget {
 
   List<Widget> _banners(BuildContext context, PlanView? v) {
     final lang = c.lang;
-    final t = text(lang), p = planText(lang), f = bible52Text(lang), deadline = deadlineText(lang);
+    final t = text(lang), f = bible52Text(lang), deadline = deadlineText(lang);
     final s = c.state;
     final fixed = v?.fixed ?? false;
     final out = <Widget>[];
@@ -131,18 +134,30 @@ class Home extends StatelessWidget {
       ));
     }
     if (c.message.isNotEmpty && v != null) {
-      final text = switch (c.message) {
+      final id = c.message;
+      final text = switch (id) {
         'deadline' => deadline.saved,
         'note' => featureText(lang)['noteSaved'],
         'noteDeleted' => featureText(lang)['noteDeleted'],
         'saved' => t.saved,
-        'replanned' => t.replanned +
-            (v.remainingDays > 0 && v.remainingChapters > 0
-                ? ' ${fill(p.workload, {'time': Fmt(lang).time(v.pace.secondsPerWord * v.remainingWords / v.remainingDays)})}'
-                : ''),
+        'replanned' => [
+            c.moved.isEmpty
+                ? ui(lang)['savedNice']
+                : fill(ui(lang)['moved'], {'count': c.moved.length, 'passage': v.readLabel(c.moved)}),
+            if (v.remainingDays > 0 && v.remainingChapters > 0)
+              fill(ui(lang)['perDayNow'],
+                  {'time': Fmt(lang).time(v.pace.secondsPerWord * v.remainingWords / v.remainingDays)}),
+          ].join(' '),
         _ => t.timerStopped,
       };
-      add(Notice(text: text));
+      // A snack bar is visible wherever the reader has scrolled to.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (c.message != id || !context.mounted) return;
+        c.message = '';
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 6), showCloseIcon: true));
+      });
     }
     return out;
   }
@@ -165,28 +180,31 @@ class Home extends StatelessWidget {
       );
     }
     if (c.state == null || c.newPlan) {
+      final u = ui(lang);
       return Gap(space: 16, children: [
-        Eyebrow(t.eyebrow),
-        Heading(t.title, size: 28),
-        Text(t.subtitle, style: TextStyle(fontSize: 16, color: context.palette.foreground)),
-        Muted(t.localIntro),
         if (c.newPlan)
-          TextButton.icon(
-            style: TextButton.styleFrom(padding: EdgeInsets.zero),
-            onPressed: () => c.update(() => c.newPlan = false),
-            icon: const Icon(Icons.close, size: 16),
-            label: Text(t.cancel),
-          ),
+          Row(children: [
+            Expanded(child: Heading(u['newPlanTitle'], size: 26)),
+            TextButton.icon(
+              onPressed: () => c.update(() => c.newPlan = false),
+              icon: const Icon(Icons.close, size: 18),
+              label: Text(t.cancel),
+            ),
+          ])
+        else ...[
+          Heading(t.title, size: 28),
+          Muted(u['introText'], size: 15),
+        ],
         PlannerForm(
           key: ValueKey(lang),
           lang: lang,
           busy: c.busy,
           zone: c.deviceZone,
-          onSave: (Config config, List<int> previouslyRead) async {
+          onSave: (choice) async {
             final s = await c.mutate({
               'action': 'create',
-              'config': config.toJson(),
-              'previouslyRead': previouslyRead,
+              'config': choice.config.toJson(),
+              'previouslyRead': choice.previouslyRead,
               'lang': lang.name,
             });
             if (s != null) {
@@ -198,10 +216,11 @@ class Home extends StatelessWidget {
                 c.reminderTime = s.config.time;
                 c.zone = s.config.timezone;
               });
+              if (choice.remind) await c.enableReminders();
             }
           },
         ),
-        if (c.state == null) ...[BackupCard(c: c), JoinPlanCard(c: c)],
+        if (c.state == null) ExistingPlanCard(c: c),
       ]);
     }
     return switch (c.tab) {

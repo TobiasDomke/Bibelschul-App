@@ -10,7 +10,7 @@
     "dev": "vite --host 127.0.0.1 --port 5174 --strictPort",
     "build": "tsc --noEmit && tsc --noEmit -p worker/tsconfig.json && vite build && node scripts/build-offline.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 5174 --strictPort",
-    "test": "node tests/planner.mjs && node tests/local-state.mjs && node tests/adaptive.mjs && node tests/pace.mjs && node tests/offline.mjs && node tests/device-storage.mjs && node tests/push.mjs && node tests/languages.mjs && node tests/app-updates.mjs && node tests/plan-options.mjs && node tests/book-order.mjs && node tests/completeness.mjs && node tests/editions-experience.mjs && node tests/bible52.mjs && node tests/deadlines.mjs && node tests/reading-time.mjs",
+    "test": "node tests/planner.mjs && node tests/local-state.mjs && node tests/adaptive.mjs && node tests/pace.mjs && node tests/offline.mjs && node tests/device-storage.mjs && node tests/push.mjs && node tests/languages.mjs && node tests/app-updates.mjs && node tests/plan-options.mjs && node tests/book-order.mjs && node tests/completeness.mjs && node tests/editions-experience.mjs && node tests/bible52.mjs && node tests/deadlines.mjs && node tests/reading-time.mjs && node tests/groups.mjs",
     "push:keys": "node scripts/generate-push-keys.mjs",
     "push:deploy": "wrangler deploy --config worker/wrangler.jsonc",
     "push:migrate": "wrangler d1 migrations apply leseweg-erinnerungen --remote --config worker/wrangler.jsonc"

@@ -12,7 +12,10 @@ import '../i18n/native_texts.dart';
 import '../services/files.dart';
 import '../core/data.g.dart';
 import '../core/insights.dart';
+import '../app/reading_stats.dart';
+import '../i18n/app_texts.dart';
 import '../i18n/feature_texts.dart';
+import 'groups_view.dart';
 import 'small_parts.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -25,22 +28,41 @@ class StatsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = c.lang;
-    final t = text(lang), p = planText(lang), e = experienceText(lang), time = readingTimeText(lang);
+    final t = text(lang), e = experienceText(lang), time = readingTimeText(lang);
     final fmt = Fmt(lang);
     final s = v.state;
     final palette = context.palette;
+    final u = ui(lang);
+    final streak = readingStreak(s, v.currentDate);
+    final wpm = wordsPerMinute(v.pace);
     final stats = [
-      (p.measured, fmt.time(v.totalSeconds), '', Icons.schedule),
-      (t.avgTime, v.timedSessions.isEmpty ? '–' : fmt.time(v.averageSession), '', Icons.bar_chart),
-      (t.units, '${v.sessions.length}', '', Icons.check_circle_outline),
-      (t.chapters, '${v.doneCount}', '/ ${fmt.number(v.scoped.length)}', Icons.menu_book_outlined),
+      (u['statChapters'], fmt.number(v.doneCount), '/ ${fmt.number(v.scoped.length)}', Icons.menu_book_outlined),
+      (u['statStreak'], streak == 0 ? '–' : fill(streak == 1 ? u['valueDay'] : u['valueDays'], {'n': streak}), '',
+          Icons.local_fire_department_outlined),
+      (u['statTime'], v.totalSeconds == 0 ? '–' : fmt.time(v.totalSeconds), '', Icons.schedule),
+      (u['statSpeed'], wpm == null ? '–' : fill(u['valueSpeed'], {'n': wpm}), '', Icons.speed),
     ];
     final chartDates = [for (var i = 0; i < 7; i++) addDays(v.currentDate, i - 6)];
     final maxValue = max(60, chartDates.map((d) => v.chartValues[d] ?? 0).reduce(max));
+    final switcher = SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<String>(
+        showSelectedIcon: false,
+        segments: [
+          ButtonSegment(value: 'me', icon: const Icon(Icons.person_outline, size: 18), label: Text(u['segMe'])),
+          ButtonSegment(value: 'groups', icon: const Icon(Icons.groups_outlined, size: 18), label: Text(u['segGroups'])),
+        ],
+        selected: {c.statsView},
+        onSelectionChanged: (value) => c.update(() => c.statsView = value.first),
+      ),
+    );
+    if (c.statsView == 'groups') {
+      return Gap(space: 14, children: [Heading(t.stats, size: 26), switcher, GroupsView(c: c)]);
+    }
     return Gap(space: 14, children: [
-      Eyebrow(t.measured),
       Heading(t.stats, size: 26),
-      Muted(t.statsSub),
+      switcher,
+      Muted(u['statsSub']),
       if (s.sessions == null || v.sessions.any((x) => x.id.startsWith('legacy-'))) FinePrint(e.legacySessions),
       GridView.count(
         crossAxisCount: 2,
@@ -69,7 +91,6 @@ class StatsTab extends StatelessWidget {
             ),
         ],
       ),
-      ReadingTimeOverview(summary: v.timeSummary, lang: lang),
       BookOverview(c: c, v: v),
       Panel(
         child: Gap(children: [
@@ -78,12 +99,11 @@ class StatsTab extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(child: Heading(t.paceTitle, size: 19)),
           ]),
-          Text(v.pace.personal ? t.personalEstimate : (v.pace.learning ? e.learning : t.defaultEstimate),
+          Text(wpm == null ? u['paceNone'] : fill(u['wpm'], {'n': wpm}),
               style: const TextStyle(fontWeight: FontWeight.w700)),
-          Muted(v.pace.personal || v.pace.learning
-              ? t.paceBased.replaceFirst('{chapters}', '${v.pace.chapters}').replaceFirst('{time}', fmt.time(v.pace.seconds))
-              : t.paceFallback),
-          Muted(e.paceHelp),
+          if (v.pace.personal || v.pace.learning)
+            Muted(t.paceBased.replaceFirst('{chapters}', '${v.pace.chapters}').replaceFirst('{time}', fmt.time(v.pace.seconds))),
+          Muted(e.paceHelp, size: 13),
           if (v.pace.excluded > 0) Notice(text: '${e.excluded}: ${v.pace.excluded}'),
         ]),
       ),
@@ -132,7 +152,7 @@ class StatsTab extends StatelessWidget {
       ),
       Panel(
         child: Gap(children: [
-          Heading(t.recent, size: 19),
+          Heading(u['recentTitle'], size: 19),
           if (v.timedSessions.isEmpty)
             Muted(t.noData)
           else
@@ -170,6 +190,10 @@ class StatsTab extends StatelessWidget {
             label: Text(nativeText(lang).exportCsv),
           ),
         ]),
+      ),
+      Panel(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+        child: Details(summary: u['timeDetails'], children: [ReadingTimeOverview(summary: v.timeSummary, lang: lang)]),
       ),
     ]);
   }

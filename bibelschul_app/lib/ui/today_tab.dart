@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../app/controller.dart';
 import '../app/plan_view.dart';
+import '../app/reading_stats.dart';
 import '../core/editions.dart';
 import '../core/insights.dart';
 import '../core/pace.dart';
 import '../core/planner.dart';
 import '../core/util.dart';
+import '../i18n/app_texts.dart';
 import '../i18n/feature_texts.dart';
 import '../i18n/i18n.dart';
+import 'day_sheet.dart';
 import 'dialogs.dart';
 import 'notes_ui.dart';
 import 'small_parts.dart';
@@ -20,20 +23,30 @@ class TodayTab extends StatelessWidget {
   final AppController c;
   final PlanView v;
 
-  /// Finishing takes one tap. Only an unusual measurement asks first whether it
-  /// should train the reading-time forecast.
+  /// Finishing takes one tap. Only a clearly unusual measurement asks whether
+  /// it should count for the reading speed – in plain words, with the numbers.
   Future<void> _finish(BuildContext context, {bool all = false}) async {
     String? paceChoice;
     if (v.unusual) {
-      final f = featureText(c.lang), e = experienceText(c.lang);
+      final u = ui(c.lang), t = text(c.lang);
+      final fmt = Fmt(c.lang);
+      final sample = v.pendingSample!;
+      final ids = {...sample.chapters, if (all) ...v.sessionItems.map((ch) => ch.id)};
+      final chapters = [for (final ch in v.sessionItems) if (ids.contains(ch.id)) ch];
+      final words = chapters.fold<int>(0, (n, ch) => n + ch.words);
       final use = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(f['confirmPaceTitle']),
-          content: Text(e.outlier),
+          title: Text(u['unusualTitle']),
+          content: Text(fill(u['unusualText'], {
+            'measured': fmt.time(sample.seconds),
+            'passage': chapters.isEmpty ? t.rest : v.readLabel(chapters),
+            'expected': fmt.time(estimatedSeconds(words, v.pace)),
+          })),
+          actionsOverflowDirection: VerticalDirection.up,
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(f['skipPace'])),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(f['usePace'])),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(u['unusualNo'])),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(u['unusualYes'])),
           ],
         ),
       );
@@ -43,12 +56,13 @@ class TodayTab extends StatelessWidget {
     if (all) {
       await c.readAll(v.day.index, [for (final ch in v.sessionItems) ch.id], paceChoice: paceChoice);
     } else {
-      await c.finish(v.day.index, paceChoice: paceChoice);
+      await c.finish(v.day.index,
+          paceChoice: paceChoice, moved: [for (final ch in v.ordered(v.sessionItems)) if (!v.doneSet.containsKey(ch.id)) ch]);
     }
   }
 
   void _howItWorks(BuildContext context) {
-    final t = text(c.lang), f = featureText(c.lang), b = bible52Text(c.lang);
+    final u = ui(c.lang), b = bible52Text(c.lang);
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -56,20 +70,41 @@ class TodayTab extends StatelessWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           child: Gap(children: [
-            Heading(f['howItWorks'], size: 19),
-            Text(v.fixed ? b.finish : t.adaptiveHint),
-            Text(t.timerNote),
-            Text(t.finishExplanation),
+            Heading(u['howItWorks'], size: 19),
+            Text(v.fixed ? b.finish : u['howCheck']),
+            Text(u['howTimer']),
+            if (!v.fixed) Text(u['howPlan']),
           ]),
         ),
       ),
     );
   }
 
+  /// One question per kind of text in today's reading (up to three), so a
+  /// mixed day gets questions that fit each part. Rotates by day.
+  List<String> _questions() {
+    final x = featureText(c.lang);
+    final genres = <String>[];
+    for (final ch in v.sessionItems) {
+      final g = genreOfBook(ch.bookIndex);
+      if (!genres.contains(g)) genres.add(g);
+    }
+    if (genres.isEmpty) return const [];
+    final day = v.day.index;
+    if (genres.length == 1) {
+      final list = x.questions[genres.first]!;
+      return [for (var i = 0; i < list.length; i++) list[(i + day) % list.length]];
+    }
+    return [
+      for (final g in genres.take(3)) x.questions[g]![day % x.questions[g]!.length],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final lang = c.lang;
     final t = text(lang), e = experienceText(lang), f = bible52Text(lang), p = planText(lang);
+    final u = ui(lang);
     final x = featureText(lang);
     final deadline = deadlineText(lang);
     final fmt = Fmt(lang);
@@ -77,24 +112,41 @@ class TodayTab extends StatelessWidget {
     final palette = context.palette;
     final busy = c.busy;
     final groupName = c.prefs.groupName(s.id);
+    final otherDay = !v.fixed && day.index != v.dateIndex;
+    final streak = readingStreak(s, v.currentDate);
+    final items = v.ordered(v.sessionItems);
 
     final heading = Gap(space: 6, children: [
-      Eyebrow(fmt.date(v.currentDate, long: true)),
-      Heading(v.doneCount == v.scoped.length ? t.completePlan : t.welcome, size: 26),
+      Eyebrow(fmt.date(otherDay ? day.date : v.currentDate, long: true)),
+      Heading(
+        v.doneCount == v.scoped.length
+            ? t.completePlan
+            : (v.dayDone && !otherDay ? u['doneToday'] : t.welcome),
+        size: 26,
+      ),
       Muted([
         if (groupName.isNotEmpty) '${x['sharedPlan']}: $groupName',
         editionName(s.config.edition),
-        v.fixed ? 'Bibelleseplan 52' : p[s.config.scope ?? 'bible'],
+        v.fixed ? 'Bibelleseplan 52' : planText(lang)[s.config.scope ?? 'bible'],
       ].join(' · ')),
     ]);
-    final goal = v.fixed
-        ? Chip(avatar: const Icon(Icons.calendar_month_outlined, size: 16), label: Text(f.description))
-        : ActionChip(
-            avatar: const Icon(Icons.calendar_month_outlined, size: 16),
-            label: Text('${t.target} · ${fmt.date(v.days.last.date, long: true)}'),
-            tooltip: '${deadline.edit}: ${fmt.date(v.days.last.date, long: true)}',
-            onPressed: busy ? null : () => showDeadlineDialog(context, c),
-          );
+
+    final chips = Wrap(spacing: 8, runSpacing: 8, children: [
+      if (v.fixed)
+        Chip(avatar: const Icon(Icons.calendar_month_outlined, size: 16), label: Text(f.description))
+      else
+        ActionChip(
+          avatar: const Icon(Icons.flag_outlined, size: 16),
+          label: Text('${t.target} · ${fmt.date(v.days.last.date, long: true)}'),
+          tooltip: deadline.edit,
+          onPressed: busy ? null : () => showDeadlineDialog(context, c),
+        ),
+      if (streak >= 2)
+        Chip(
+          avatar: Icon(Icons.local_fire_department_outlined, size: 16, color: palette.primary),
+          label: Text(fill(u['streakDays'], {'days': streak})),
+        ),
+    ]);
 
     final timerBox = (v.canRead || v.seconds > 0)
         ? Container(
@@ -117,9 +169,16 @@ class TodayTab extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                v.running ? t.timerRunning : (v.canRead && !v.dayDone ? t.timerPaused : e.dailyMeasured),
-                style: TextStyle(color: v.running ? palette.onPrimary : palette.mutedForeground),
+              // Same height in every state, so the chapters below never jump.
+              SizedBox(
+                height: 20,
+                child: Text(
+                  v.running ? u['timerRunning'] : (v.canRead && !v.dayDone ? u['timerIdle'] : e.dailyMeasured),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13.5, color: v.running ? palette.onPrimary : palette.mutedForeground),
+                ),
               ),
               if (v.canRead && !v.dayDone) ...[
                 const SizedBox(height: 12),
@@ -154,15 +213,22 @@ class TodayTab extends StatelessWidget {
         ),
         PopupMenuItem(
           value: 'info',
-          child: ListTile(leading: const Icon(Icons.info_outline), title: Text(x['howItWorks'])),
+          child: ListTile(leading: const Icon(Icons.info_outline), title: Text(u['howItWorks'])),
         ),
       ],
     );
 
-    final unchecked = v.sessionItems.where((ch) => !v.doneSet.containsKey(ch.id)).toList();
-    final genre = v.sessionItems.isNotEmpty ? genreOfBook(v.sessionItems.first.bookIndex) : null;
+    final unchecked = items.where((ch) => !v.doneSet.containsKey(ch.id)).toList();
+    final checked = items.length - unchecked.length;
     final note = c.noteFor(day.index);
-    final readSomething = v.sessionItems.any((ch) => v.doneSet.containsKey(ch.id)) || v.dayDone;
+    final readSomething = checked > 0 || v.dayDone;
+    final questions = (v.canRead || readSomething) ? _questions() : const <String>[];
+    void editNote([String? prompt]) => showNoteEditor(context, c,
+        day: day.index,
+        date: v.dayDone || day.date.compareTo(v.currentDate) < 0 ? day.date : v.currentDate,
+        passage: v.fixed ? bible52Units[day.index].label : v.readLabel(v.sessionItems),
+        prompt: prompt);
+    final timerLocked = s.timer != null && !v.running;
 
     final readingCard = Panel(
       child: Gap(children: [
@@ -170,7 +236,7 @@ class TodayTab extends StatelessWidget {
           Expanded(
             child: Eyebrow(v.fixed
                 ? 'Bibelleseplan 52'
-                : (v.dayDone || day.date.compareTo(v.currentDate) < 0 ? t.read : t.recommended)),
+                : (v.dayDone || day.date.compareTo(v.currentDate) < 0 ? t.read : u['todayReading'])),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -189,18 +255,18 @@ class TodayTab extends StatelessWidget {
           size: 24,
         ),
         Wrap(spacing: 14, runSpacing: 6, children: [
-          _meta(context, Icons.calendar_today_outlined, v.fixed ? f.original : fmt.date(day.date)),
+          if (v.fixed) _meta(context, Icons.category_outlined, u['cat${day.index % 7}']),
           if (day.words > 0)
             _meta(
                 context,
                 Icons.schedule,
-                '${t.approx} ${fmt.time(estimatedSeconds(day.words, v.pace))} · '
-                '${v.pace.personal ? t.personalEstimate : (v.pace.learning ? e.learning : t.defaultEstimate)}'),
+                '${t.approx} ${fmt.time(estimatedSeconds(day.words, v.pace))}'
+                '${v.pace.personal ? ' · ${u['yourPace']}' : ''}'),
         ]),
         ReadingContext(config: s.config, items: v.sessionItems, lang: lang),
         if (v.sessionItems.isNotEmpty || v.canRead) ...[
           ?timerBox,
-          if (s.timer != null && !v.running)
+          if (timerLocked)
             TextButton.icon(
               onPressed: () => c.choose(s.timer?.day ?? s.pace?.draft?.day ?? v.dateIndex),
               icon: const Icon(Icons.schedule, size: 16),
@@ -208,7 +274,7 @@ class TodayTab extends StatelessWidget {
             ),
           if (v.seconds > 14400) Notice(text: t.longTimer, kind: NoticeKind.warning),
           Column(children: [
-            for (final ch in v.sessionItems)
+            for (final ch in items)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: CheckboxListTile(
@@ -237,33 +303,32 @@ class TodayTab extends StatelessWidget {
           ]),
           if (v.canRead && !v.dayDone) ...[
             if (v.nextExtra != null)
-              OutlinedButton.icon(
-                onPressed: busy ? null : () => c.mutate({'action': 'extend', 'day': day.index}),
-                icon: const Icon(Icons.add, size: 18),
-                label: Text('${t.addChapter} · ${v.readLabel([v.nextExtra!])}', overflow: TextOverflow.ellipsis),
-              ),
-            Row(children: [
-              if (unchecked.isNotEmpty) ...[
-                Expanded(
-                  child: Tooltip(
-                    message: x['readAllHelp'],
-                    child: OutlinedButton.icon(
-                      onPressed: busy || (s.timer != null && !v.running) ? null : () => _finish(context, all: true),
-                      icon: const Icon(Icons.done_all, size: 18),
-                      label: Text(x['readAll']),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: busy || (s.timer != null && !v.running) ? null : () => _finish(context),
-                  icon: const Icon(Icons.check),
-                  label: Text(e.finish),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4)),
+                  onPressed: busy ? null : () => c.mutate({'action': 'extend', 'day': day.index}),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(fill(u['addNext'], {'passage': v.readLabel([v.nextExtra!])})),
                 ),
               ),
-            ]),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: busy || timerLocked ? null : () => _finish(context, all: unchecked.isNotEmpty),
+                icon: Icon(unchecked.isEmpty ? Icons.check : Icons.done_all),
+                label: Text(unchecked.isEmpty ? u['finish'] : u['finishAll']),
+              ),
+            ),
+            if (unchecked.isNotEmpty && (checked > 0 || v.sessionSeconds > 0))
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: busy || timerLocked ? null : () => _finish(context),
+                  child: Text(checked > 0 ? fill(u['finishChecked'], {'count': checked}) : u['finishTimeOnly']),
+                ),
+              ),
+            if (unchecked.isNotEmpty && (checked > 0 || v.sessionSeconds > 0)) FinePrint(u['finishCheckedHelp']),
           ],
           if (v.dayDone)
             Row(children: [
@@ -280,26 +345,31 @@ class TodayTab extends StatelessWidget {
               label: Text(v.fixed ? f.next : t.continueReading),
             ),
         ],
-        if (genre != null && (v.canRead || readSomething))
+        if (questions.isNotEmpty)
           Details(summary: x['questions'], children: [
-            for (final q in x.questions[genre]!)
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, right: 8),
-                  child: Icon(Icons.chat_bubble_outline, size: 16, color: palette.ring),
+            Muted(u['reflectTap'], size: 13),
+            for (final q in questions)
+              Material(
+                color: palette.muted,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => editNote(q),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, right: 8),
+                        child: Icon(Icons.chat_bubble_outline, size: 16, color: palette.ring),
+                      ),
+                      Expanded(child: Text(q)),
+                      Icon(Icons.edit_note, size: 18, color: palette.mutedForeground),
+                    ]),
+                  ),
                 ),
-                Expanded(child: Text(q)),
-              ]),
+              ),
           ]),
-        if (readSomething || note != null)
-          NotePreview(
-            c: c,
-            note: note,
-            onEdit: () => showNoteEditor(context, c,
-                day: day.index,
-                date: v.dayDone || day.date.compareTo(v.currentDate) < 0 ? day.date : v.currentDate,
-                passage: v.fixed ? bible52Units[day.index].label : v.readLabel(v.sessionItems)),
-          ),
+        if (v.canRead || readSomething || note != null) NotePreview(c: c, note: note, onEdit: editNote),
       ]),
     );
 
@@ -307,12 +377,13 @@ class TodayTab extends StatelessWidget {
       child: Gap(children: [
         Row(children: [
           Expanded(child: Heading(t.progress, size: 17)),
-          Icon(Icons.menu_book_outlined, color: palette.mutedForeground),
+          Text.rich(TextSpan(children: [
+            TextSpan(
+                text: formattedPercent(v.percent, lang),
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: palette.foreground)),
+            TextSpan(text: ' %', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: palette.foreground)),
+          ])),
         ]),
-        Text.rich(TextSpan(children: [
-          TextSpan(text: formattedPercent(v.percent, lang), style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800)),
-          const TextSpan(text: ' %', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        ])),
         Semantics(
           label: t.progress,
           child: ClipRRect(
@@ -320,13 +391,14 @@ class TodayTab extends StatelessWidget {
             child: LinearProgressIndicator(value: v.percent / 100, minHeight: 10),
           ),
         ),
-        Muted('${fmt.number(v.doneCount)} / ${fmt.number(v.scoped.length)} ${t.chapters} · ${t.byText}'),
-        Row(children: [
-          Icon(Icons.schedule, size: 19, color: palette.mutedForeground),
-          const SizedBox(width: 8),
-          Expanded(child: Text(p.measured)),
-          Text(fmt.time(v.totalSeconds), style: const TextStyle(fontWeight: FontWeight.w700)),
-        ]),
+        Muted(fill(u['chaptersOf'], {'done': fmt.number(v.doneCount), 'total': fmt.number(v.scoped.length)})),
+        if (v.totalSeconds > 0)
+          Row(children: [
+            Icon(Icons.schedule, size: 19, color: palette.mutedForeground),
+            const SizedBox(width: 8),
+            Expanded(child: Text(p.measured)),
+            Text(fmt.time(v.totalSeconds), style: const TextStyle(fontWeight: FontWeight.w700)),
+          ]),
       ]),
     );
 
@@ -339,7 +411,7 @@ class TodayTab extends StatelessWidget {
         for (final d in upcoming)
           InkWell(
             borderRadius: BorderRadius.circular(10),
-            onTap: () => c.choose(d.index),
+            onTap: () => showDaySheet(context, c, d.index),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(children: [
@@ -358,6 +430,7 @@ class TodayTab extends StatelessWidget {
                         size: 12.5),
                   ]),
                 ),
+                Icon(Icons.chevron_right, color: palette.mutedForeground),
               ]),
             ),
           ),
@@ -395,7 +468,7 @@ class TodayTab extends StatelessWidget {
             text: e.reviewEdition,
             actions: [OutlinedButton(onPressed: () => c.setTab('settings'), child: Text(t.settings))]),
       heading,
-      Align(alignment: Alignment.centerLeft, child: goal),
+      chips,
       if (!v.fixed && v.days.first.date.compareTo(v.currentDate) > 0)
         Notice(text: '${t.future} ${fmt.date(v.days.first.date, long: true)}.'),
       if (!v.fixed && v.remainingChapters > 0 && v.currentDate.compareTo(v.days.last.date) > 0)
@@ -445,7 +518,7 @@ class TodayTab extends StatelessWidget {
         ),
       readingCard,
       progress,
-      next,
+      if (upcoming.isNotEmpty) next,
     ]);
   }
 

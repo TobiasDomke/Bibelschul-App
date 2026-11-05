@@ -12,6 +12,9 @@ class Preferences {
 
   static Future<Preferences> open() async => Preferences(await SharedPreferences.getInstance());
 
+  /// The underlying store, for features that keep their own keys (reading groups).
+  SharedPreferences get store => _prefs;
+
   Lang? get lang => parseLang(_prefs.getString('leseweg-lang'));
   set lang(Lang? value) => value == null ? _prefs.remove('leseweg-lang') : _prefs.setString('leseweg-lang', value.name);
 

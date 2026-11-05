@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../app/controller.dart';
 import '../app/plan_view.dart';
 import '../core/notes.dart';
+import '../core/planner.dart';
+import '../i18n/app_texts.dart';
 import '../i18n/feature_texts.dart';
 import '../i18n/i18n.dart';
 import '../i18n/native_texts.dart';
@@ -53,27 +55,35 @@ class NotePreview extends StatelessWidget {
   }
 }
 
+/// Opens the note of [day]. A reflection [prompt] is added to the text, so the
+/// question stays next to the answer.
 Future<void> showNoteEditor(BuildContext context, AppController c,
-        {required int day, required String date, required String passage}) =>
+        {required int day, required String date, required String passage, String? prompt}) =>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _NoteEditor(c: c, day: day, date: date, passage: passage),
+      builder: (_) => _NoteEditor(c: c, day: day, date: date, passage: passage, prompt: prompt),
     );
 
 class _NoteEditor extends StatefulWidget {
-  const _NoteEditor({required this.c, required this.day, required this.date, required this.passage});
+  const _NoteEditor({required this.c, required this.day, required this.date, required this.passage, this.prompt});
   final AppController c;
   final int day;
   final String date, passage;
+  final String? prompt;
   @override
   State<_NoteEditor> createState() => _NoteEditorState();
 }
 
 class _NoteEditorState extends State<_NoteEditor> {
   late final existing = widget.c.noteFor(widget.day);
-  late final controller = TextEditingController(text: existing?.text ?? '');
+  late final controller = () {
+    final before = existing?.text ?? '';
+    final prompt = widget.prompt;
+    final value = prompt == null || before.contains(prompt) ? before : '${before.isEmpty ? '' : '$before\n\n'}$prompt\n';
+    return TextEditingController(text: value)..selection = TextSelection.collapsed(offset: value.length);
+  }();
   bool saving = false;
 
   @override
@@ -158,10 +168,21 @@ class _NotesTabState extends State<NotesTab> {
     final visible = c.notes
         .where((n) => q.isEmpty || n.text.toLowerCase().contains(q) || n.passage.toLowerCase().contains(q))
         .toList();
+    final v = PlanView.of(c);
+    final u = ui(lang);
+    final todayNote = v == null ? null : c.noteFor(v.dateIndex);
     return Gap(space: 14, children: [
-      Eyebrow(x['notes']),
       Heading(x['notes'], size: 26),
       Muted(x['notesSub']),
+      if (v != null)
+        FilledButton.icon(
+          onPressed: () => showNoteEditor(context, c,
+              day: v.dateIndex,
+              date: v.currentDate,
+              passage: v.fixed ? bible52Units[v.dateIndex].label : v.readLabel(v.sessionItemsFor(v.dateIndex))),
+          icon: Icon(todayNote == null ? Icons.add : Icons.edit_outlined, size: 18),
+          label: Text(todayNote == null ? u['newNote'] : u['editTodayNote']),
+        ),
       if (c.notes.isNotEmpty) ...[
         TextField(
           decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: x['searchNotes']),
@@ -180,7 +201,7 @@ class _NotesTabState extends State<NotesTab> {
         ),
       ],
       if (c.notes.isEmpty)
-        Panel(child: Muted(x['noNotes']))
+        Panel(child: Muted(u['noNotes']))
       else if (visible.isEmpty)
         Panel(child: Muted(x['noMatches']))
       else

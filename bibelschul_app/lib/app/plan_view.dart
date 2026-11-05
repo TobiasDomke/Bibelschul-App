@@ -111,9 +111,21 @@ class PlanView {
   }();
   late final bool unusual = pendingSample != null && sampleNeedsReview(pendingSample!, state, pace.secondsPerWord);
 
+  /// "Gesamte Bibel · Biblische Reihenfolge"
+  String get planLabel {
+    final p = planText(lang);
+    return '${p[state.config.scope ?? 'bible']} · ${p[state.config.order ?? 'canonical']}';
+  }
+
   List<Chapter> sessionItemsFor(int dayIndex) => sessionChapters(planState, dayIndex);
 
-  String readLabel(List<Chapter> items) => passage(items, names).isEmpty ? text(lang).rest : passage(items, names);
+  String readLabel(List<Chapter> items) {
+    final label = passage(displayOrder(items, state.config), names);
+    return label.isEmpty ? text(lang).rest : label;
+  }
+
+  /// Chapters of [items] in the order they are shown and read.
+  List<Chapter> ordered(List<Chapter> items) => displayOrder(items, state.config);
 
   /// Preview of the pace after finishing, using exactly the calculation saving commits.
   ReadingPace finishingPace(bool confirm) {
@@ -141,4 +153,19 @@ class PlanView {
   }
 
   static PlanView? of(AppController c) => c.state == null ? null : PlanView._(c, c.state!);
+}
+
+/// Chapters of one day in reading order. The "balanced" order mixes several
+/// strands; showing each book together ("1. Mose 3–4 · Matthäus 2" instead of
+/// "1. Mose 3 · Matthäus 2 · 1. Mose 4") reads naturally and changes nothing
+/// about which chapters belong to the day. Other orders stay as planned.
+List<Chapter> displayOrder(List<Chapter> items, Config config) {
+  if (config.order != 'mixed' || items.length < 3) return items;
+  final books = <int>[];
+  for (final ch in items) {
+    if (!books.contains(ch.bookIndex)) books.add(ch.bookIndex);
+  }
+  return [
+    for (final b in books) ...(items.where((ch) => ch.bookIndex == b).toList()..sort((a, z) => a.number.compareTo(z.number))),
+  ];
 }

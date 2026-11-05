@@ -8,11 +8,13 @@ import type {
   ExportedHandler,
 } from "@cloudflare/workers-types";
 import { localDate, nextReminder } from "./schedule";
+import { handleGroups, isGroupPath } from "./groups";
 import { languageCodes, type Lang } from "../lib/languages";
 
 export interface Env {
   DB: D1Database;
   API_LIMIT: RateLimit;
+  GROUP_LIMIT: RateLimit;
   APP_ORIGIN: string;
   VAPID_PUBLIC_KEY: string;
   VAPID_PRIVATE_KEY: string;
@@ -34,9 +36,9 @@ export interface Reminder {
 }
 type Sender = (row: Reminder, env: Env, test?: boolean) => Promise<number>;
 const languages = languageCodes;
-const MAX_BODY = 4096;
+export const MAX_BODY = 4096;
 const MAX_SUBSCRIPTIONS = 1000;
-const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
+export const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
 
 export async function digest(value: string) {
   return Array.from(
@@ -45,6 +47,26 @@ export async function digest(value: string) {
     ),
     (b) => b.toString(16).padStart(2, "0"),
   ).join("");
+}
+/** Reads at most `max` bytes of the body; returns null when it is larger. */
+export async function readLimitedText(request: Request, max = MAX_BODY) {
+  if (Number(request.headers.get("Content-Length") ?? 0) > max) return null;
+  const reader = request.body?.getReader();
+  if (!reader) return "";
+  let bytes = 0,
+    text = "";
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > max) {
+      await reader.cancel();
+      return null;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
 }
 function base64Length(value: unknown, size: number) {
   if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value))
@@ -256,6 +278,8 @@ export async function handleRequest(
       publicKey: env.VAPID_PUBLIC_KEY,
       available: !!env.VAPID_PUBLIC_KEY && !!env.VAPID_PRIVATE_KEY,
     });
+  // Reading groups are also used by the native app, which sends no Origin.
+  if (isGroupPath(path)) return handleGroups(request, env, headers, now);
   if (origin !== env.APP_ORIGIN)
     return reply({ error: "origin_not_allowed" }, 403);
   if (request.method === "OPTIONS")
@@ -279,24 +303,8 @@ export async function handleRequest(
         return reply({ error: "unavailable" }, 503);
       if (!request.headers.get("Content-Type")?.startsWith("application/json"))
         return reply({ error: "invalid_settings" }, 415);
-      if (Number(request.headers.get("Content-Length") ?? 0) > MAX_BODY)
-        return reply({ error: "too_large" }, 413);
-      const reader = request.body?.getReader();
-      if (!reader) return reply({ error: "invalid_settings" }, 400);
-      let bytes = 0,
-        text = "";
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        bytes += value.byteLength;
-        if (bytes > MAX_BODY) {
-          await reader.cancel();
-          return reply({ error: "too_large" }, 413);
-        }
-        text += decoder.decode(value, { stream: true });
-      }
-      text += decoder.decode();
+      const text = await readLimitedText(request);
+      if (text === null) return reply({ error: "too_large" }, 413);
       let data: ReturnType<typeof parseSettings>;
       try {
         data = parseSettings(JSON.parse(text));

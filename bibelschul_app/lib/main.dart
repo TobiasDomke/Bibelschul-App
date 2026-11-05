@@ -50,7 +50,11 @@ class LesewegApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: buildTheme(Brightness.light),
             darkTheme: buildTheme(Brightness.dark),
-            themeMode: controller.theme == 'dark' ? ThemeMode.dark : ThemeMode.light,
+            themeMode: switch (controller.theme) {
+              'dark' => ThemeMode.dark,
+              'light' => ThemeMode.light,
+              _ => ThemeMode.system,
+            },
             locale: Locale(language, country),
             supportedLocales: const [Locale('de', 'DE'), Locale('ru', 'RU'), Locale('en', 'GB'), Locale('uk', 'UA')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
