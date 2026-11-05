@@ -105,6 +105,7 @@ class GroupsController extends ChangeNotifier {
       wpm: wordsPerMinute(v.pace),
       lastRead: lastReadDate(s),
       plan: label.length > 60 ? label.substring(0, 60) : label,
+      progress: (v.percentExact * 100).floor().clamp(0, 10000),
     );
   }
 

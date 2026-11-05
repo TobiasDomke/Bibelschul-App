@@ -1,6 +1,8 @@
 // The reading-effort model: realistic totals, recent sessions count more and
 // the app learns per kind of text how fast someone reads.
 import 'package:bibelschul_app/core/difficulty.dart';
+import 'package:bibelschul_app/core/insights.dart';
+import 'package:bibelschul_app/services/groups_api.dart';
 import 'package:bibelschul_app/core/pace.dart';
 import 'package:bibelschul_app/core/planner.dart';
 import 'package:bibelschul_app/core/state.dart';
@@ -31,6 +33,21 @@ ReadingState _state(List<(List<int>, int)> samples) {
 int _id(String code, int number) => chapters.firstWhere((c) => c.code == code && c.number == number).id;
 
 void main() {
+  test('progress weighs text, not chapters', () {
+    ReadingState read(List<int> ids) => _state([(ids, 0)])..pace = null;
+    final shortPsalm = bookTextShare(read([_id('PSA', 117)]))[18]!;
+    final longPsalm = bookTextShare(read([_id('PSA', 119)]))[18]!;
+    expect(longPsalm / shortPsalm, greaterThan(50), reason: 'Psalm 119 is over 100 times longer than Psalm 117');
+    // Groups compare the word-based share once a member sends it.
+    const old = MemberStats(chapters: 150, total: 1189, weekChapters: 0, streak: 0, minutes: 0, wpm: null, lastRead: null, plan: '');
+    const now = MemberStats(
+        chapters: 150, total: 1189, weekChapters: 0, streak: 0, minutes: 0, wpm: null, lastRead: null, plan: '', progress: 541);
+    expect(old.percent, closeTo(12.6, 0.05));
+    expect(now.percent, 5.41);
+    expect(now.toJson()['progress'], 541);
+    expect(old.toJson().containsKey('progress'), isFalse);
+  });
+
   test('text kinds', () {
     expect(textKind('GEN', 1), 'narrative');
     expect(textKind('GEN', 5), 'list');

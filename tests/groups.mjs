@@ -260,9 +260,18 @@ const bad = [
   { plan: "a\u0000b" },
   { plan: null },
   { extra: 1 },
+  { progress: -1 },
+  { progress: 10001 },
+  { progress: 12.5 },
 ];
 for (const over of bad)
   assert.equal((await call("/me", "PUT", { name: "A", stats: stats(over) })).status, 400, JSON.stringify(over));
+// The optional word-based progress (hundredths of a percent) is kept as sent.
+assert.equal((await call("/me", "PUT", { name: "Anna", stats: stats({ progress: 1027 }) }, anna)).status, 200);
+assert.equal(
+  (await call("/groups/" + group.id, "GET", undefined, anna)).data.group.members.find((m) => m.me).stats.progress,
+  1027,
+);
 const missing = stats();
 delete missing.plan;
 assert.equal((await call("/me", "PUT", { name: "A", stats: missing })).status, 400);

@@ -16,13 +16,18 @@ class MemberStats {
     required this.wpm,
     required this.lastRead,
     required this.plan,
+    this.progress,
   });
   final int chapters, total, weekChapters, streak, minutes;
   final int? wpm;
   final String? lastRead;
   final String plan;
 
-  double get percent => total == 0 ? 0 : chapters / total * 100;
+  /// Share of the plan's text read, by words, in hundredths of a percent.
+  /// Older app versions did not send it; then chapters are the fallback.
+  final int? progress;
+
+  double get percent => progress != null ? progress! / 100 : (total == 0 ? 0 : chapters / total * 100);
 
   Map<String, Object?> toJson() => {
         'chapters': chapters,
@@ -33,6 +38,7 @@ class MemberStats {
         'wpm': wpm,
         'lastRead': lastRead,
         'plan': plan,
+        'progress': ?progress,
       };
 
   static MemberStats? fromJson(Object? raw) {
@@ -47,6 +53,7 @@ class MemberStats {
       wpm: (raw['wpm'] as num?)?.toInt(),
       lastRead: raw['lastRead'] as String?,
       plan: raw['plan'] as String? ?? '',
+      progress: (raw['progress'] as num?)?.toInt(),
     );
   }
 }

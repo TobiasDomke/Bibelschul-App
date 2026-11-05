@@ -27,6 +27,8 @@ const STAT_KEYS = [
   "lastRead",
   "plan",
 ] as const;
+/** Optional: share of the plan's text read, in hundredths of a percent (by words). */
+const OPTIONAL_STAT_KEYS = ["progress"] as const;
 // C0/C1 controls, line/paragraph separators and bidi overrides/isolates.
 const controlPattern = /[\p{Cc}\u2028\u2029\u202A-\u202E\u2066-\u2069]/u;
 
@@ -130,8 +132,12 @@ export function parseStats(value: unknown): string | null {
   if (!isObject(value)) throw new GroupError("invalid_stats");
   const keys = Object.keys(value);
   if (
-    keys.length !== STAT_KEYS.length ||
-    keys.some((k) => !(STAT_KEYS as readonly string[]).includes(k))
+    STAT_KEYS.some((k) => !keys.includes(k)) ||
+    keys.some(
+      (k) =>
+        !(STAT_KEYS as readonly string[]).includes(k) &&
+        !(OPTIONAL_STAT_KEYS as readonly string[]).includes(k),
+    )
   )
     throw new GroupError("invalid_stats");
   const s = value;
@@ -145,6 +151,7 @@ export function parseStats(value: unknown): string | null {
     !int(s.minutes, 0, 1000000) ||
     !(s.wpm === null || int(s.wpm, 0, 2000)) ||
     !(s.lastRead === null || validDate(s.lastRead)) ||
+    !(s.progress === undefined || int(s.progress, 0, 10000)) ||
     plan === null
   )
     throw new GroupError("invalid_stats");
@@ -157,6 +164,7 @@ export function parseStats(value: unknown): string | null {
     wpm: s.wpm,
     lastRead: s.lastRead,
     plan,
+    ...(s.progress === undefined ? {} : { progress: s.progress }),
   });
 }
 function parseVisible(value: unknown, fallback?: boolean) {

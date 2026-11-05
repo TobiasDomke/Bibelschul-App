@@ -55,3 +55,16 @@ List<(int bookIndex, int read, int total)> bookProgress(ReadingState state) {
   }
   return [for (final e in result.entries) (e.key, e.value.$1, e.value.$2)];
 }
+
+/// Share of each book's text that is read, by words – Psalm 119 weighs far
+/// more than Psalm 117, unlike a simple chapter count.
+Map<int, double> bookTextShare(ReadingState state) {
+  final previous = (state.previouslyRead ?? const <int>[]).toSet();
+  final words = <int, (int, int)>{};
+  for (final c in scopeFor(state.config)) {
+    final (read, total) = words[c.bookIndex] ?? (0, 0);
+    final isRead = state.done.containsKey(c.id) || previous.contains(c.id);
+    words[c.bookIndex] = (read + (isRead ? c.words : 0), total + c.words);
+  }
+  return {for (final MapEntry(key: book, value: (read, total)) in words.entries) book: total == 0 ? 0 : read / total};
+}

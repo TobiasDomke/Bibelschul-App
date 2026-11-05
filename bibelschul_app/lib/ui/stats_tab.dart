@@ -91,7 +91,11 @@ class StatsTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(value: v.percentExact / 100, minHeight: 10),
           ),
-          FinePrint('${fill(u['chaptersOf'], {'done': fmt.number(v.doneCount), 'total': fmt.number(v.scoped.length)})} · ${t.byText}'),
+          FinePrint(fill(u['chaptersOf'], {'done': fmt.number(v.doneCount), 'total': fmt.number(v.scoped.length)})),
+          Details(summary: u['progressHow'], children: [
+            Text(u['progressExplain']),
+            FinePrint(u['progressSource']),
+          ]),
         ]),
       ),
       if (s.sessions == null || v.sessions.any((x) => x.id.startsWith('legacy-'))) FinePrint(e.legacySessions),
@@ -232,6 +236,7 @@ class BookOverview extends StatelessWidget {
     final names = bookNames(c.lang) ?? [for (final b in bibleBooks) b.name];
     final palette = context.palette;
     final books = bookProgress(v.state);
+    final share = bookTextShare(v.state);
     return Panel(
       child: Gap(children: [
         Heading(x['books'], size: 19),
@@ -254,7 +259,7 @@ class BookOverview extends StatelessWidget {
                   ),
                   child: Stack(children: [
                     FractionallySizedBox(
-                      widthFactor: read / total,
+                      widthFactor: (share[index] ?? read / total).clamp(0.0, 1.0),
                       heightFactor: 1,
                       child: Container(color: read == total ? palette.primary : palette.accent),
                     ),

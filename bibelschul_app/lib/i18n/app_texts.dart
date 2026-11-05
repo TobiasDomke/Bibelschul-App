@@ -24,6 +24,11 @@ Iterable<String> get uiTextKeys => _de.keys;
 Map<Lang, Map<String, String>> get uiTextTables => const {Lang.de: _de, Lang.en: _en, Lang.ru: _ru, Lang.uk: _uk};
 
 const Map<String, String> _de = {
+  'byWords': 'Prozent nach Textmenge',
+  'progressHow': 'Wie wird der Fortschritt berechnet?',
+  'progressExplain':
+      'Der Prozentwert zählt Wörter, nicht Kapitel: Psalm 117 hat rund 20 Wörter, Psalm 119 über 2.000. Die Psalmen sind 12,6 % aller Kapitel, aber nur gut 5 % des Bibeltextes. Wörter sind genauer als Verse, denn auch Verse sind sehr unterschiedlich lang (Johannes 11,35 hat in der Schlachter 2000 zwei Wörter, Ester 8,9 über siebzig), und die Verszählung weicht je nach Bibelausgabe ab. Die Kapitelzahl steht zur Orientierung daneben; gelesen wird immer ein ganzes Kapitel.',
+  'progressSource': 'Wortzahlen: Luther 1912 (gemeinfrei), umgerechnet auf die Kapitel deiner Ausgabe. Die Anteile sind bei allen Übersetzungen nahezu gleich.',
   'shareStats': 'Statistik teilen',
   'shareImage': 'Als Bild teilen',
   'shareCsv': 'Alle Daten als Tabelle (CSV)',
@@ -229,6 +234,11 @@ const Map<String, String> _de = {
 };
 
 const Map<String, String> _en = {
+  'byWords': 'percent by amount of text',
+  'progressHow': 'How is progress calculated?',
+  'progressExplain':
+      'The percentage counts words, not chapters: Psalm 117 has about 20 words, Psalm 119 more than 2,000. The Psalms are 12.6 % of all chapters but only about 5 % of the Bible text. Words are more precise than verses, because verses also vary a lot in length (John 11:35 has two words in English, Esther 8:9 more than seventy) and verse numbering differs between editions. The chapter count is shown for orientation; you always read whole chapters.',
+  'progressSource': 'Word counts: Luther 1912 (public domain), mapped to the chapters of your edition. The shares are almost the same in every translation.',
   'shareStats': 'Share statistics',
   'shareImage': 'Share as image',
   'shareCsv': 'All data as a table (CSV)',
@@ -426,6 +436,11 @@ const Map<String, String> _en = {
 };
 
 const Map<String, String> _ru = {
+  'byWords': 'процент по объёму текста',
+  'progressHow': 'Как считается прогресс?',
+  'progressExplain':
+      'Процент считает слова, а не главы: в Псалме 116(117) около 20 слов, в Псалме 118(119) больше 2000. Псалмы – это 12,6 % всех глав, но лишь около 5 % текста Библии. Слова точнее стихов: стихи тоже очень разной длины (Ин 11:35 – два слова, Есф 8:9 – больше семидесяти), а нумерация стихов в изданиях различается. Число глав показано для ориентира; читаются всегда целые главы.',
+  'progressSource': 'Число слов: Лютер 1912 (общественное достояние), пересчитано на главы твоего издания. Доли почти одинаковы во всех переводах.',
   'shareStats': 'Поделиться статистикой',
   'shareImage': 'Поделиться картинкой',
   'shareCsv': 'Все данные таблицей (CSV)',
@@ -623,6 +638,11 @@ const Map<String, String> _ru = {
 };
 
 const Map<String, String> _uk = {
+  'byWords': 'відсоток за обсягом тексту',
+  'progressHow': 'Як рахується поступ?',
+  'progressExplain':
+      'Відсоток рахує слова, а не розділи: у Псалмі 117 близько 20 слів, у Псалмі 119 понад 2000. Псалми – це 12,6 % усіх розділів, але лише близько 5 % тексту Біблії. Слова точніші за вірші: вірші теж дуже різної довжини (Ів 11:35 – лише кілька слів, Ест 8:9 – понад сімдесят), а нумерація віршів у виданнях різниться. Кількість розділів показано для орієнтиру; читаються завжди цілі розділи.',
+  'progressSource': 'Кількість слів: Лютер 1912 (суспільне надбання), перераховано на розділи твого видання. Частки майже однакові в усіх перекладах.',
   'shareStats': 'Поділитися статистикою',
   'shareImage': 'Поділитися зображенням',
   'shareCsv': 'Усі дані таблицею (CSV)',

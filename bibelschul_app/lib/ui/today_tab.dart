@@ -336,7 +336,7 @@ class TodayTab extends StatelessWidget {
             child: LinearProgressIndicator(value: v.percent / 100, minHeight: 10),
           ),
         ),
-        Muted(fill(u['chaptersOf'], {'done': fmt.number(v.doneCount), 'total': fmt.number(v.scoped.length)})),
+        Muted('${fill(u['chaptersOf'], {'done': fmt.number(v.doneCount), 'total': fmt.number(v.scoped.length)})} · ${u['byWords']}'),
         if (v.totalSeconds > 0)
           Row(children: [
             Icon(Icons.schedule, size: 19, color: palette.mutedForeground),
