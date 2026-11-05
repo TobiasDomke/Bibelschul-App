@@ -21,6 +21,28 @@ class Preferences {
   bool get remindersEnabled => _prefs.getBool('leseweg-reminders') ?? false;
   set remindersEnabled(bool value) => _prefs.setBool('leseweg-reminders', value);
 
+  bool get eveningReminder => _prefs.getBool('leseweg-evening') ?? false;
+  set eveningReminder(bool value) => _prefs.setBool('leseweg-evening', value);
+
+  String get eveningTime => _prefs.getString('leseweg-evening-time') ?? '20:00';
+  set eveningTime(String value) => _prefs.setString('leseweg-evening-time', value);
+
+  bool get autoBackup => _prefs.getBool('leseweg-auto-backup') ?? true;
+  set autoBackup(bool value) => _prefs.setBool('leseweg-auto-backup', value);
+
+  int get lastAutoBackup => _prefs.getInt('leseweg-auto-backup-at') ?? 0;
+  set lastAutoBackup(int value) => _prefs.setInt('leseweg-auto-backup-at', value);
+
+  /// Date until which the "behind schedule" card stays hidden for a plan.
+  String behindHiddenUntil(String planId) => _prefs.getString('leseweg-behind-$planId') ?? '';
+  void hideBehind(String planId, String until) => _prefs.setString('leseweg-behind-$planId', until);
+
+  /// Optional name of a shared group plan.
+  String groupName(String planId) => _prefs.getString('leseweg-group-$planId') ?? '';
+  void setGroupName(String planId, String name) => name.isEmpty
+      ? _prefs.remove('leseweg-group-$planId')
+      : _prefs.setString('leseweg-group-$planId', name);
+
   BackupStatus backupStatus(String? planId) {
     try {
       final raw = jsonDecode(_prefs.getString('leseweg-backup-${planId ?? ''}') ?? '{}') as Map;

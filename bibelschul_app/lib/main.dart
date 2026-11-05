@@ -7,6 +7,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'app/controller.dart';
 import 'core/languages.dart';
 import 'core/util.dart';
+import 'services/auto_backup.dart';
 import 'services/preferences.dart';
 import 'services/storage.dart';
 import 'ui/home.dart';
@@ -27,6 +28,7 @@ Future<void> main() async {
     store: await ReadingStore.open(),
     prefs: await Preferences.open(),
     deviceZone: zone,
+    autoBackups: await AutoBackup.open(),
     systemLang: browserLanguage(WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag()),
   );
   runApp(LesewegApp(controller: controller));

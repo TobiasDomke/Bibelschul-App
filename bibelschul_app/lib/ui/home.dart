@@ -6,6 +6,8 @@ import '../core/languages.dart';
 import '../core/state.dart';
 import '../core/util.dart';
 import '../i18n/i18n.dart';
+import '../i18n/feature_texts.dart';
+import 'notes_ui.dart';
 import 'plan_tab.dart';
 import 'planner_form.dart';
 import 'settings_tab.dart';
@@ -20,7 +22,7 @@ class Home extends StatelessWidget {
   const Home({super.key, required this.c});
   final AppController c;
 
-  static const _tabs = ['today', 'plan', 'stats', 'settings'];
+  static const _tabs = ['today', 'plan', 'notes', 'stats', 'settings'];
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +77,7 @@ class Home extends StatelessWidget {
               destinations: [
                 NavigationDestination(icon: const Icon(Icons.wb_sunny_outlined), label: t.today),
                 NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), label: t.plan),
+                NavigationDestination(icon: const Icon(Icons.edit_note), label: featureText(lang)['notes']),
                 NavigationDestination(icon: const Icon(Icons.bar_chart), label: t.stats),
                 NavigationDestination(icon: const Icon(Icons.settings_outlined), label: t.settings),
               ],
@@ -130,6 +133,8 @@ class Home extends StatelessWidget {
     if (c.message.isNotEmpty && v != null) {
       final text = switch (c.message) {
         'deadline' => deadline.saved,
+        'note' => featureText(lang)['noteSaved'],
+        'noteDeleted' => featureText(lang)['noteDeleted'],
         'saved' => t.saved,
         'replanned' => t.replanned +
             (v.remainingDays > 0 && v.remainingChapters > 0
@@ -196,11 +201,12 @@ class Home extends StatelessWidget {
             }
           },
         ),
-        if (c.state == null) BackupCard(c: c),
+        if (c.state == null) ...[BackupCard(c: c), JoinPlanCard(c: c)],
       ]);
     }
     return switch (c.tab) {
       'plan' => PlanTab(c: c, v: v!),
+      'notes' => NotesTab(c: c),
       'stats' => StatsTab(c: c, v: v!),
       'settings' => SettingsTab(c: c, v: v!),
       _ => TodayTab(c: c, v: v!),

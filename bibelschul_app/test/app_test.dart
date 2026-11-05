@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:bibelschul_app/app/controller.dart';
 import 'package:bibelschul_app/core/languages.dart';
+import 'package:bibelschul_app/core/plan_code.dart';
 import 'package:bibelschul_app/main.dart';
 import 'package:bibelschul_app/services/preferences.dart';
 import 'package:bibelschul_app/services/storage.dart';
@@ -42,6 +43,7 @@ Future<AppController> _controller(Directory dir, {Lang lang = Lang.de}) async {
     prefs: await Preferences.open(),
     deviceZone: 'Europe/Berlin',
     systemLang: lang,
+    native: false,
   );
 }
 
@@ -104,20 +106,46 @@ void main() {
     expect(c.state!.done.length, 1);
     await _shot(tester, '05-today-running');
 
-    // Finish the unit: pauses the timer and redistributes.
+    // Finish in one step. A one-second measurement is unusual, so the app asks
+    // only whether it should train the forecast.
     await _tap(tester, find.widgetWithText(FilledButton, 'Lesen beenden'), real: true);
-    await _shot(tester, '06-finish-dialog');
-    await _tap(tester, find.widgetWithText(FilledButton, 'Beenden und Plan anpassen'), real: true);
+    expect(find.text('Ungewöhnliche Messung'), findsOneWidget);
+    await _shot(tester, '06-unusual-measurement');
+    await _tap(tester, find.widgetWithText(TextButton, 'Nicht verwenden'), real: true);
     expect(c.state!.timer, isNull);
     expect(c.state!.sessions, hasLength(1));
     expect(c.state!.adaptive!.finished, contains(0));
+    expect(c.state!.pace!.samples.single.review, 'excluded');
+
+    // A note for the finished unit.
+    await _tap(tester, find.widgetWithText(TextButton, 'Gedanken notieren'));
+    await tester.enterText(find.byType(TextField), 'Am Anfang schuf Gott – alles beginnt bei ihm.');
+    await _shot(tester, '06b-note-editor');
+    await _tap(tester, find.widgetWithText(FilledButton, 'Speichern'), real: true);
+    expect(c.notes.single.text, startsWith('Am Anfang'));
+    await _shot(tester, '06c-today-with-note');
 
     // The other tabs.
-    for (final (label, name) in [('Leseplan', '07-plan'), ('Statistik', '08-stats'), ('Einstellungen', '09-settings')]) {
+    for (final (label, name) in [
+      ('Leseplan', '07-plan'),
+      ('Notizen', '07b-notes'),
+      ('Statistik', '08-stats'),
+      ('Einstellungen', '09-settings'),
+    ]) {
       await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text(label)));
       await tester.pumpAndSettle();
       await _shot(tester, name);
     }
+
+    // Settings groups open their own pages.
+    await _tap(tester, find.text('Erinnerungen'));
+    await _shot(tester, '09b-settings-reminders');
+    await _tap(tester, find.byType(BackButton));
+    await _tap(tester, find.widgetWithText(ListTile, 'Leseplan'));
+    await _tap(tester, find.widgetWithText(FilledButton, 'QR-Code anzeigen'));
+    await _shot(tester, '09c-share-qr');
+    await _tap(tester, find.widgetWithText(TextButton, 'Schließen'));
+    await _tap(tester, find.byType(BackButton));
 
     // Dark mode and another language.
     c.setTheme('dark');
@@ -135,7 +163,11 @@ void main() {
     late AppController again;
     await tester.runAsync(() async {
       again = AppController(
-          store: ReadingStore(dir), prefs: await Preferences.open(), deviceZone: 'Europe/Berlin', systemLang: Lang.de);
+          store: ReadingStore(dir),
+          prefs: await Preferences.open(),
+          deviceZone: 'Europe/Berlin',
+          systemLang: Lang.de,
+          native: false);
       await again.load();
     });
     expect(again.state!.id, id);
@@ -156,10 +188,8 @@ void main() {
     await tester.pumpWidget(LesewegApp(controller: c));
     await tester.runAsync(c.start);
     await tester.pumpAndSettle();
-    await _tap(tester, find.text('Bibelleseplan 52').first);
-    for (var i = 0; i < 2; i++) {
-      await _tap(tester, find.widgetWithText(FilledButton, 'Weiter'));
-    }
+    // Quick-start template: one tap fills the plan and jumps to the preview.
+    await _tap(tester, find.widgetWithText(ListTile, 'Bibelleseplan 52'));
     await _tap(tester, find.widgetWithText(FilledButton, 'Meinen Leseplan erstellen'), real: true);
     expect(c.state!.config.template, 'bible52');
     expect(find.textContaining('Woche 1'), findsWidgets);
@@ -167,6 +197,41 @@ void main() {
     await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Leseplan')));
     await tester.pumpAndSettle();
     await _shot(tester, '13-bible52-plan');
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
+
+  testWidgets('template, "read it all" and joining a group plan', (tester) async {
+    tester.view.physicalSize = const Size(1179, 2556);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final dir = Directory.systemTemp.createTempSync('leseweg-test-nt');
+    late AppController c;
+    await tester.runAsync(() async {
+      c = await _controller(dir);
+    });
+    await tester.pumpWidget(LesewegApp(controller: c));
+    await tester.runAsync(c.start);
+    await tester.pumpAndSettle();
+    await _tap(tester, find.widgetWithText(ListTile, 'Neues Testament in 90 Tagen'));
+    await _tap(tester, find.widgetWithText(FilledButton, 'Meinen Leseplan erstellen'), real: true);
+    expect(c.state!.config.scope, 'nt');
+    expect(c.state!.config.amount, 90);
+    final today = c.state!.adaptive!.days[0];
+    await _tap(tester, find.widgetWithText(OutlinedButton, 'Alles gelesen'), real: true);
+    expect(today.every(c.state!.done.containsKey), isTrue);
+    expect(c.state!.adaptive!.finished, contains(0));
+    await _shot(tester, '14-read-all');
+
+    // Join a plan shared by a group: same settings, new plan, group name shown.
+    final code = encodePlanCode(c.state!.config..order = 'chronological', 'Bibelschule 2026');
+    final shared = decodePlanCode(code, time: '06:30', timezone: 'Europe/Berlin')!;
+    await tester.runAsync(() => c.joinPlan(shared));
+    await tester.pumpAndSettle();
+    expect(c.state!.config.order, 'chronological');
+    expect(c.state!.done, isEmpty);
+    expect(find.textContaining('Bibelschule 2026'), findsOneWidget);
+    await _shot(tester, '15-group-plan');
     await tester.pumpWidget(const SizedBox());
     c.dispose();
   });

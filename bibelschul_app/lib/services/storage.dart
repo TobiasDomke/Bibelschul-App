@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../core/actions.dart';
 import '../core/adaptive.dart';
+import '../core/notes.dart';
 import '../core/state.dart';
 import '../core/util.dart';
 
@@ -75,6 +76,39 @@ class ReadingStore {
 
   Future<ReadingState> change(Map<String, Object?> op) async =>
       (await _transaction((state) => applyAction(state, op)))!;
+
+  File get _notesFile => File('${directory.path}/notes.json');
+
+  /// Notes live next to the plan (notes.json), serialized through the same queue.
+  Future<List<ReadingNote>> readNotes() {
+    final completer = Completer<List<ReadingNote>>();
+    _queue = _queue.then((_) async {
+      try {
+        final file = _notesFile;
+        completer.complete(await file.exists()
+            ? [for (final n in jsonDecode(await file.readAsString()) as List) ReadingNote.fromJson((n as Map).cast())]
+            : <ReadingNote>[]);
+      } catch (error, stack) {
+        completer.completeError(error, stack);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> writeNotes(List<ReadingNote> notes) {
+    final completer = Completer<void>();
+    _queue = _queue.then((_) async {
+      try {
+        final temp = File('${_notesFile.path}.tmp');
+        await temp.writeAsString(jsonEncode([for (final n in notes) n.toJson()]), flush: true);
+        await temp.rename(_notesFile.path);
+        completer.complete();
+      } catch (error, stack) {
+        completer.completeError(error, stack);
+      }
+    });
+    return completer.future;
+  }
 
   Future<ReadingState> restore(ReadingState state, String? expectedId) async =>
       (await _transaction((current) {

@@ -9,6 +9,7 @@ import '../core/pace.dart';
 import '../core/planner.dart';
 import '../core/state.dart';
 import '../core/util.dart';
+import '../i18n/feature_texts.dart';
 import '../i18n/i18n.dart';
 import 'bible52_weeks.dart';
 import 'book_order_control.dart';
@@ -78,6 +79,36 @@ class _PlannerFormState extends State<PlannerForm> {
     } catch (_) {
       return (days: <Day>[], error: text(widget.lang).invalid);
     }
+  }
+
+  /// Quick-start templates; each fills the form and jumps to the preview.
+  void applyPreset(String id) {
+    final base = draft.copy()
+      ..template = null
+      ..edition = languageEdition(widget.lang)
+      ..keepTogether = true
+      ..bookOrderMode = 'auto'
+      ..scope = 'bible'
+      ..order = 'canonical'
+      ..amount = 12
+      ..unit = 'months';
+    final next = switch (id) {
+      'nt' => base
+        ..scope = 'nt'
+        ..amount = 90
+        ..unit = 'days',
+      'chrono' => base..order = 'chronological',
+      'mixed' => base..order = 'mixed',
+      '52' => bible52Config(base),
+      _ => base,
+    };
+    setState(() {
+      draft = next;
+      previouslyRead = [];
+      dateMode = false;
+      amountController.text = '${next.amount}';
+    });
+    move(2);
   }
 
   void setScope(String scope) {
@@ -169,6 +200,7 @@ class _PlannerFormState extends State<PlannerForm> {
               ),
           ]),
           if (step == 0) ...[
+            _presets(context),
             ChoiceGroup<bool>(
               label: f.type,
               value: fixed,
@@ -434,6 +466,39 @@ class _PlannerFormState extends State<PlannerForm> {
     );
 
     return Gap(space: 16, children: [form, preview]);
+  }
+
+  Widget _presets(BuildContext context) {
+    final x = featureText(widget.lang);
+    final palette = context.palette;
+    final presets = [
+      ('bible', Icons.menu_book_outlined, x['presetBible'], x['presetBibleHelp']),
+      ('nt', Icons.wb_sunny_outlined, x['presetNt'], x['presetNtHelp']),
+      ('chrono', Icons.timeline, x['presetChrono'], x['presetChronoHelp']),
+      ('mixed', Icons.shuffle, x['presetMixed'], x['presetMixedHelp']),
+      ('52', Icons.calendar_view_week_outlined, x['preset52'], x['preset52Help']),
+    ];
+    return Gap(space: 8, children: [
+      FieldLabel(x['presets']),
+      Muted(x['presetsHelp'], size: 13),
+      for (final (id, icon, title, help) in presets)
+        Material(
+          color: palette.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: palette.border)),
+          child: ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: Icon(icon, color: palette.primary),
+            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(help),
+            trailing: const Icon(Icons.chevron_right),
+            enabled: !widget.busy,
+            onTap: () => applyPreset(id),
+          ),
+        ),
+      const SizedBox(height: 6),
+      FieldLabel(x['presetCustom']),
+      Muted(x['presetCustomHelp'], size: 13),
+    ]);
   }
 
   Widget _previewLine(IconData icon, String value, Palette palette) => Row(

@@ -3,21 +3,28 @@ import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../core/insights.dart';
 import '../core/languages.dart';
+import '../core/state.dart';
+import '../core/util.dart';
+import '../i18n/feature_texts.dart';
 
 /// Daily reading reminders, scheduled on the device itself.
 ///
 /// The web app needed a Cloudflare push service for this. A native app can
 /// schedule local notifications directly: they work offline and no reminder
-/// data ever leaves the device. Like the web reminders, the message is general;
-/// the chapters are calculated when the app opens.
+/// data leaves the device. Instead of one repeating notification, the next
+/// [days] days are scheduled individually, so a day on which the reader has
+/// already read gets no reminder, and an optional evening reminder only comes
+/// when nothing was read yet. The schedule is rebuilt after every change and
+/// whenever the app opens.
 class Reminders {
   Reminders._();
   static final instance = Reminders._();
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
-  static const _dailyId = 1;
+  static const days = 28; // 2 × 28 stays below iOS's limit of 64 pending notifications.
   static const _testId = 2;
 
   static const _messages = {
@@ -92,24 +99,52 @@ class Reminders {
     return due;
   }
 
-  Future<void> scheduleDaily({required String time, required String timezone, required Lang lang}) async {
-    await _init();
-    await _plugin.cancel(id: _dailyId);
-    await _plugin.zonedSchedule(
-      id: _dailyId,
-      title: 'Leseweg',
-      body: _messages[lang]!.$1,
-      scheduledDate: nextOccurrence(time, timezone),
-      notificationDetails: _details,
-      // Inexact delivery needs no special alarm permission on Android.
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+  /// The reminders to schedule from [now] on: (instant, evening?).
+  /// Pure function, so the skipping rules can be tested without a device.
+  static List<(DateTime, bool)> plan(
+    ReadingState state, {
+    required bool evening,
+    required String eveningTime,
+    DateTime? now,
+  }) {
+    if (planComplete(state)) return const [];
+    final at = now ?? DateTime.now();
+    final zone = state.config.timezone;
+    final todayDate = today(zone, at.millisecondsSinceEpoch);
+    final readToday = readOn(state, todayDate);
+    final result = <(DateTime, bool)>[];
+    for (var i = 0; i < days; i++) {
+      final date = addDays(todayDate, i);
+      if (i == 0 && readToday) continue;
+      for (final (time, isEvening) in [(state.config.time, false), if (evening) (eveningTime, true)]) {
+        final instant = zonedUTC(date, time, zone);
+        if (instant.isAfter(at)) result.add((instant, isEvening));
+      }
+    }
+    return result;
   }
 
-  Future<void> cancelDaily() async {
+  Future<void> schedule(ReadingState state, {required bool evening, required String eveningTime}) async {
     await _init();
-    await _plugin.cancel(id: _dailyId);
+    await _plugin.cancelAll();
+    final texts = featureText(state.lang);
+    final location = state.config.timezone == 'UTC' ? tz.UTC : tz.getLocation(state.config.timezone);
+    for (final (i, (instant, isEvening)) in plan(state, evening: evening, eveningTime: eveningTime).indexed) {
+      await _plugin.zonedSchedule(
+        id: 100 + i,
+        title: 'Leseweg',
+        body: isEvening ? texts['eveningMessage'] : _messages[state.lang]!.$1,
+        scheduledDate: tz.TZDateTime.from(instant, location),
+        notificationDetails: _details,
+        // Inexact delivery needs no special alarm permission on Android.
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    }
+  }
+
+  Future<void> cancelAll() async {
+    await _init();
+    await _plugin.cancelAll();
   }
 
   Future<void> showTest(Lang lang) async {

@@ -13,7 +13,6 @@ import '../core/reading_time.dart';
 import '../core/state.dart';
 import '../core/util.dart';
 import '../i18n/i18n.dart';
-import 'theme.dart';
 import 'widgets.dart';
 
 Future<bool> confirmDialog(BuildContext context,
@@ -203,119 +202,6 @@ class _TimeCorrectionDialogState extends State<_TimeCorrectionDialog> {
                   if (ok != null) navigator.pop();
                 },
           child: Text(widget.c.busy ? t.saving : t.save),
-        ),
-      ],
-    );
-  }
-}
-
-/// "Finish reading": review chapters, then save and redistribute (finishing dialog in leseweg.tsx).
-Future<void> showFinishDialog(BuildContext context, AppController c) => showDialog(
-      context: context,
-      builder: (_) => ListenableBuilder(listenable: c, builder: (context, _) => _FinishDialog(c: c)),
-    );
-
-class _FinishDialog extends StatefulWidget {
-  const _FinishDialog({required this.c});
-  final AppController c;
-  @override
-  State<_FinishDialog> createState() => _FinishDialogState();
-}
-
-class _FinishDialogState extends State<_FinishDialog> {
-  bool confirmPace = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = widget.c;
-    final v = PlanView.of(c);
-    if (v == null) return const SizedBox.shrink();
-    final lang = c.lang;
-    final t = text(lang), e = experienceText(lang), f = bible52Text(lang), time = readingTimeText(lang);
-    final fmt = Fmt(lang);
-    final checked = v.sessionItems.where((ch) => v.doneSet.containsKey(ch.id)).length;
-    final palette = context.palette;
-    return AlertDialog(
-      title: Text(e.finish),
-      content: SingleChildScrollView(
-        child: Gap(children: [
-          Text(v.fixed ? f.finish : t.finishExplanation),
-          if (v.unusual)
-            Notice(
-              kind: NoticeKind.warning,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(e.outlier),
-                CheckRow(
-                  value: confirmPace,
-                  title: e.confirmPace,
-                  onChanged: (x) => setState(() => confirmPace = x),
-                ),
-              ]),
-            ),
-          for (final ch in v.sessionItems)
-            CheckRow(
-              value: v.doneSet.containsKey(ch.id),
-              title: v.readLabel([ch]),
-              onChanged: c.busy || (v.fixed && v.priorIds.contains(ch.id))
-                  ? null
-                  : (x) => c.mutate({'action': 'chapter', 'chapter': ch.id, 'done': x}),
-            ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: c.busy
-                  ? null
-                  : () {
-                      Navigator.pop(context);
-                      showTimeCorrectionDialog(context, c, v.day.index, v.seconds);
-                    },
-              icon: const Icon(Icons.edit_outlined, size: 16),
-              label: Text(t.editTime),
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: palette.muted, borderRadius: BorderRadius.circular(12)),
-            child: Gap(space: 4, children: [
-              Text('$checked ${t.chaptersChecked}', style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text('${v.remainingChapters} ${t.chaptersRemaining}'),
-              if (v.fixed)
-                Text(f.original)
-              else if (v.remainingChapters == 0)
-                Text(t.completePlan)
-              else if (v.remainingDays > 0)
-                Text(
-                    '${v.remainingDays} ${t.daysRemaining} · ${t.approx} ${readingTime(estimatedSeconds(v.remainingWords / v.remainingDays, v.finishingPace(confirmPace)), lang)} ${time.daily}')
-              else
-                Notice(text: t.noDaysRemaining, kind: NoticeKind.warning),
-              if (!v.fixed && v.days.isNotEmpty) Text('${t.target}: ${fmt.date(v.days.last.date, long: true)}'),
-            ]),
-          ),
-        ]),
-      ),
-      actions: [
-        TextButton(onPressed: c.busy ? null : () => Navigator.pop(context), child: Text(t.cancel)),
-        FilledButton(
-          onPressed: c.busy
-              ? null
-              : () async {
-                  final navigator = Navigator.of(context);
-                  final fixed = v.fixed;
-                  final updated = await c.mutate({
-                    'action': 'complete',
-                    'day': v.day.index,
-                    if (v.unusual) 'paceChoice': confirmPace ? 'confirmed' : 'excluded',
-                  });
-                  if (updated != null) {
-                    c.update(() {
-                      c.message = fixed ? 'saved' : 'replanned';
-                      c.selected = null;
-                    });
-                    navigator.pop();
-                  }
-                },
-          child: Text(c.busy ? t.saving : (v.fixed ? f.save : t.finishAndReplan)),
         ),
       ],
     );

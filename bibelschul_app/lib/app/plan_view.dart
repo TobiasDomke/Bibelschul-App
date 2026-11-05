@@ -111,6 +111,8 @@ class PlanView {
   }();
   late final bool unusual = pendingSample != null && sampleNeedsReview(pendingSample!, state, pace.secondsPerWord);
 
+  List<Chapter> sessionItemsFor(int dayIndex) => sessionChapters(planState, dayIndex);
+
   String readLabel(List<Chapter> items) => passage(items, names).isEmpty ? text(lang).rest : passage(items, names);
 
   /// Preview of the pace after finishing, using exactly the calculation saving commits.

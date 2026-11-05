@@ -10,6 +10,9 @@ import '../core/util.dart';
 import '../i18n/i18n.dart';
 import '../i18n/native_texts.dart';
 import '../services/files.dart';
+import '../core/data.g.dart';
+import '../core/insights.dart';
+import '../i18n/feature_texts.dart';
 import 'small_parts.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -67,6 +70,7 @@ class StatsTab extends StatelessWidget {
         ],
       ),
       ReadingTimeOverview(summary: v.timeSummary, lang: lang),
+      BookOverview(c: c, v: v),
       Panel(
         child: Gap(children: [
           Row(children: [
@@ -81,23 +85,6 @@ class StatsTab extends StatelessWidget {
               : t.paceFallback),
           Muted(e.paceHelp),
           if (v.pace.excluded > 0) Notice(text: '${e.excluded}: ${v.pace.excluded}'),
-          Details(summary: e.advanced, children: [
-            for (final (index, sample) in (s.pace?.samples ?? []).indexed)
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                    '${v.fixed ? bible52Position(sample.day, lang) : fmt.date(addDays(s.config.start, sample.day))} · '
-                    '${sample.chapters.length} ${t.chapters} · ${fmt.time(sample.seconds)}'),
-                const SizedBox(height: 6),
-                LabeledDropdown<String>(
-                  label: e.paceUse,
-                  value: sample.review ?? 'auto',
-                  enabled: !c.busy,
-                  items: [('auto', e.automatic), ('confirmed', e.confirmed), ('excluded', e.excludedChoice)],
-                  onChanged: (review) => c.mutate(
-                      {'action': 'review-pace', 'index': index, 'seconds': sample.seconds, 'review': review}),
-                ),
-              ]),
-          ]),
         ]),
       ),
       Panel(
@@ -185,5 +172,68 @@ class StatsTab extends StatelessWidget {
         ]),
       ),
     ]);
+  }
+}
+
+/// One tile per book, filled by the share of chapters read.
+class BookOverview extends StatelessWidget {
+  const BookOverview({super.key, required this.c, required this.v});
+  final AppController c;
+  final PlanView v;
+
+  @override
+  Widget build(BuildContext context) {
+    final x = featureText(c.lang);
+    final names = bookNames(c.lang) ?? [for (final b in bibleBooks) b.name];
+    final palette = context.palette;
+    final books = bookProgress(v.state);
+    return Panel(
+      child: Gap(children: [
+        Heading(x['books'], size: 19),
+        Muted(x['booksSub']),
+        LayoutBuilder(builder: (context, box) {
+          final columns = box.maxWidth > 520 ? 4 : 3;
+          final width = (box.maxWidth - (columns - 1) * 6) / columns;
+          return Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final (index, read, total) in books)
+              Semantics(
+                label: '${names[index]}: $read / $total',
+                child: Container(
+                  width: width,
+                  height: 46,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: palette.muted,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: read == total ? palette.primary : palette.border),
+                  ),
+                  child: Stack(children: [
+                    FractionallySizedBox(
+                      widthFactor: read / total,
+                      heightFactor: 1,
+                      child: Container(color: read == total ? palette.primary : palette.accent),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(names[index],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: read == total ? palette.onPrimary : palette.foreground)),
+                        Text('$read/$total',
+                            style: TextStyle(
+                                fontSize: 11, color: read == total ? palette.onPrimary : palette.mutedForeground)),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+          ]);
+        }),
+      ]),
+    );
   }
 }
