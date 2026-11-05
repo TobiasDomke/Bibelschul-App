@@ -7,7 +7,7 @@ auf dem jeweiligen Gerät. Optionale Push-Erinnerungen benötigen zusätzlich ei
 Erinnerungsdienst und Internet; der Leseplan selbst benötigt keinen Server.
 
 [Web-App öffnen und installieren](https://leseweg.pages.dev/) ·
-[Quellcode auf GitHub](https://github.com/TobiasDomke/leseweg)
+[Quellcode auf GitHub](https://github.com/TobiasDomke/Bibelschul-App)
 
 ## Funktionen
 
