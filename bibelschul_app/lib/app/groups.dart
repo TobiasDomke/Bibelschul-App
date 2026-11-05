@@ -168,6 +168,23 @@ class GroupsController extends ChangeNotifier {
 
   Future<bool> newCode(ReadingGroup group) => _run(() async => _replace(await _client.newCode(group.id)));
 
+  /// What a backup needs to bring the memberships back after a reinstall.
+  ({String token, String name})? get access => joined ? (token: _token, name: name) : null;
+
+  /// Takes over the group access of a restored backup and loads its groups.
+  Future<bool> restoreAccess(({String token, String name}) access, PlanView? v) async {
+    if (access.token == _prefs.getString(_tokenKey) && joined) return refresh(v);
+    await _prefs.setString(_tokenKey, access.token);
+    await _prefs.setString(_nameKey, access.name);
+    await _store(const []);
+    return _run(() async {
+      final client = _client;
+      final ids = await client.list();
+      await _store([for (final id in ids) await client.get(id)]);
+      if (ids.isNotEmpty && access.name.isNotEmpty) await client.updateMe(access.name, statsOf(v));
+    });
+  }
+
   /// Leaves every group and deletes the shared numbers on the server.
   Future<bool> deleteAll() => _run(() async {
         await _client.deleteAll();

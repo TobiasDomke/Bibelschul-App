@@ -4,18 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../app/controller.dart';
 import '../app/plan_view.dart';
-import '../core/exports.dart';
 import '../core/reading_time.dart';
 import '../core/util.dart';
 import '../i18n/i18n.dart';
-import '../i18n/native_texts.dart';
-import '../services/files.dart';
 import '../core/data.g.dart';
 import '../core/insights.dart';
 import '../app/reading_stats.dart';
 import '../i18n/app_texts.dart';
 import '../i18n/feature_texts.dart';
 import 'groups_view.dart';
+import 'share_card.dart';
 import 'small_parts.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -56,13 +54,46 @@ class StatsTab extends StatelessWidget {
         onSelectionChanged: (value) => c.update(() => c.statsView = value.first),
       ),
     );
+    final header = Row(children: [
+      Expanded(child: Heading(t.stats, size: 26)),
+      if (c.statsView == 'me')
+        IconButton.filledTonal(
+          tooltip: u['shareStats'],
+          onPressed: () => showShareStats(context, c, v),
+          icon: const Icon(Icons.ios_share),
+        ),
+    ]);
     if (c.statsView == 'groups') {
-      return Gap(space: 14, children: [Heading(t.stats, size: 26), switcher, GroupsView(c: c)]);
+      return Gap(space: 14, children: [header, switcher, GroupsView(c: c)]);
     }
+    final p = planText(lang);
     return Gap(space: 14, children: [
-      Heading(t.stats, size: 26),
+      header,
       switcher,
-      Muted(u['statsSub']),
+      Panel(
+        child: Gap(space: 10, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text.rich(TextSpan(children: [
+              TextSpan(
+                  text: formattedPercent(v.percentExact, lang),
+                  style: TextStyle(fontSize: 38, fontWeight: FontWeight.w800, color: palette.foreground, height: 1)),
+              TextSpan(text: ' %', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: palette.foreground)),
+            ])),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Muted(fill(u['cardRead'], {'scope': v.fixed ? 'Bibelleseplan 52' : p[s.config.scope ?? 'bible']})),
+              ),
+            ),
+          ]),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(value: v.percentExact / 100, minHeight: 10),
+          ),
+          FinePrint('${fill(u['chaptersOf'], {'done': fmt.number(v.doneCount), 'total': fmt.number(v.scoped.length)})} · ${t.byText}'),
+        ]),
+      ),
       if (s.sessions == null || v.sessions.any((x) => x.id.startsWith('legacy-'))) FinePrint(e.legacySessions),
       GridView.count(
         crossAxisCount: 2,
@@ -179,16 +210,6 @@ class StatsTab extends StatelessWidget {
                   ]),
                 ),
               ),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final ok = await shareFile(csvFile(s, lang), 'leseweg-statistik.csv', 'text/csv');
-              if (!ok && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(nativeText(lang).shareFailed)));
-              }
-            },
-            icon: const Icon(Icons.ios_share, size: 17),
-            label: Text(nativeText(lang).exportCsv),
-          ),
         ]),
       ),
       Panel(

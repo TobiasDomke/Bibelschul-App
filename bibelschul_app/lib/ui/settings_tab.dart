@@ -699,7 +699,7 @@ class _BackupCardState extends State<BackupCard> {
                       try {
                         final latest = await c.store.read();
                         if (latest == null) throw const AppError('backup');
-                        final ok = await shareFile(makeAppBackup(latest, lang, c.backupTheme, c.notes),
+                        final ok = await shareFile(makeAppBackup(latest, lang, c.backupTheme, c.notes, null, c.groups.access),
                             'leseweg-sicherung-${today(latest.config.timezone)}.json', 'application/json');
                         if (!ok) throw const AppError('share');
                         await c.prefs.recordBackup(latest.id, 'exported');
@@ -720,7 +720,19 @@ class _BackupCardState extends State<BackupCard> {
         ]),
         FinePrint('${n.backupNote} ${n.backupCaution}'),
         FinePrint(n.importHelp),
-        if (c.notes.isNotEmpty) FinePrint(x['backupNotesHint']),
+        if (c.notes.isNotEmpty) ...[
+          // Notes from earlier versions stay in backups and can still be exported.
+          OutlinedButton.icon(
+            onPressed: () async {
+              final ok = await shareFile(notesText(c.notes, 'Leseweg · ${x['notes']}'), 'leseweg-notizen.txt', 'text/plain');
+              if (!ok && context.mounted) _snack(context, n.shareFailed);
+            },
+            icon: const Icon(Icons.notes, size: 17),
+            label: Text('${x['exportNotes']} (${c.notes.length})'),
+          ),
+          FinePrint(x['backupNotesHint']),
+        ],
+        if (c.groups.joined) FinePrint(ui(lang)['backupGroupsHint']),
         if (error.isNotEmpty) Notice(text: error, kind: NoticeKind.error),
       ]),
     );

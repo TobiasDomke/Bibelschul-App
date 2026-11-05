@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
-import '../app/plan_view.dart';
 import '../core/data.g.dart';
 import '../core/languages.dart';
 import '../core/planner.dart';
@@ -133,10 +133,17 @@ class DateSquare extends StatelessWidget {
   }
 }
 
-/// Whole percent; "< 1" right at the start and never "100" before the last chapter.
+/// Percent with as many decimals as the stage needs: "0,27" at the start,
+/// "3,4" later, never "100" before the last chapter and never a bare "0" once
+/// something was read.
 String formattedPercent(double percent, Lang lang) {
   if (percent <= 0) return '0';
-  if (percent < 1) return '< 1';
-  if (percent < 100) return Fmt(lang).number(percent.floor().clamp(1, 99));
-  return '100';
+  if (percent >= 100) return '100';
+  final decimals = percent < 1 ? 2 : 1;
+  final factor = decimals == 2 ? 100 : 10;
+  // Round down so the display never runs ahead of the reading.
+  var value = (percent * factor).floor() / factor;
+  if (value <= 0) value = 1 / factor;
+  if (value >= 100) value = 100 - 1 / factor;
+  return NumberFormat.decimalPatternDigits(locale: locales[lang], decimalDigits: decimals).format(value);
 }

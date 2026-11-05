@@ -9,7 +9,6 @@ import 'package:bibelschul_app/core/actions.dart';
 import 'package:bibelschul_app/core/languages.dart';
 import 'package:bibelschul_app/core/planner.dart';
 import 'package:bibelschul_app/core/state.dart';
-import 'package:bibelschul_app/core/util.dart';
 import 'package:bibelschul_app/i18n/app_texts.dart';
 import 'package:bibelschul_app/main.dart';
 import 'package:bibelschul_app/services/groups_api.dart';
@@ -136,10 +135,13 @@ void main() {
 
   test('percent, streak and balanced-day order', () {
     expect(formattedPercent(0, Lang.de), '0');
-    expect(formattedPercent(0.1, Lang.de), '< 1');
-    expect(formattedPercent(42.7, Lang.de), '42');
-    expect(formattedPercent(99.9, Lang.de), '99');
+    expect(formattedPercent(0.2691, Lang.de), '0,26');
+    expect(formattedPercent(0.001, Lang.de), '0,01');
+    expect(formattedPercent(3.47, Lang.de), '3,4');
+    expect(formattedPercent(42.0, Lang.de), '42,0');
+    expect(formattedPercent(99.99, Lang.de), '99,9');
     expect(formattedPercent(100, Lang.de), '100');
+    expect(formattedPercent(3.47, Lang.en), '3.4');
 
     final config = parseConfig({
       'amount': 12, 'unit': 'months', 'start': '2026-11-01', 'time': '07:30', 'timezone': 'Europe/Berlin',

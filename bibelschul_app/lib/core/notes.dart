@@ -86,22 +86,41 @@ List<ReadingNote> parseNotes(Object? raw) {
   ];
 }
 
+/// Access to reading groups, so a restored installation keeps its memberships.
+typedef GroupAccess = ({String token, String name});
+
 class AppBackup {
-  const AppBackup(this.backup, this.notes);
+  const AppBackup(this.backup, this.notes, [this.groups]);
   final Backup backup;
   final List<ReadingNote> notes;
+  final GroupAccess? groups;
 }
 
-/// Version 8 (web-compatible) without notes; version 9 adds a `notes` list.
-String makeAppBackup(ReadingState state, Lang lang, String theme, List<ReadingNote> notes, [int? nowMs]) {
+/// Version 8 (web-compatible) without notes or groups; version 9 adds a
+/// `notes` list and, for members of reading groups, a `groups` entry.
+String makeAppBackup(ReadingState state, Lang lang, String theme, List<ReadingNote> notes,
+    [int? nowMs, GroupAccess? groups]) {
   final json = makeBackup(state, lang, theme, nowMs);
-  if (notes.isEmpty) return json;
+  if (notes.isEmpty && groups == null) return json;
   final data = jsonDecode(json) as Map<String, Object?>;
   return const JsonEncoder.withIndent('  ').convert({
     ...data,
     'version': 9,
     'notes': [for (final n in notes) n.toJson()],
+    if (groups != null) 'groups': {'token': groups.token, 'name': groups.name},
   });
+}
+
+GroupAccess? _parseGroups(Object? raw) {
+  if (raw == null) return null;
+  if (raw is! Map ||
+      raw['token'] is! String ||
+      !RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(raw['token'] as String) ||
+      raw['name'] is! String ||
+      (raw['name'] as String).length > 40) {
+    throw const AppError('backup');
+  }
+  return (token: raw['token'] as String, name: raw['name'] as String);
 }
 
 /// Reads web backups (versions 1–8) and app backups with notes (version 9).
@@ -116,8 +135,9 @@ AppBackup parseAppBackup(String raw) {
   if (json is Map && json['version'] == 9) {
     final data = Map<String, Object?>.from(json.cast<String, Object?>());
     final notes = parseNotes(data.remove('notes'));
+    final groups = _parseGroups(data.remove('groups'));
     data['version'] = 8;
-    return AppBackup(parseBackup(jsonEncode(data)), notes);
+    return AppBackup(parseBackup(jsonEncode(data)), notes, groups);
   }
   return AppBackup(parseBackup(raw), const []);
 }

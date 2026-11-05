@@ -24,12 +24,13 @@ class AutoBackup {
     return AutoBackup(dir);
   }
 
-  Future<File> write(ReadingState state, Lang lang, String theme, List<ReadingNote> notes, [int? nowMs]) async {
+  Future<File> write(ReadingState state, Lang lang, String theme, List<ReadingNote> notes,
+      [int? nowMs, GroupAccess? groups]) async {
     await directory.create(recursive: true);
     final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
     final file = File('${directory.path}/leseweg-sicherung-${today(state.config.timezone, now)}.json');
     final temp = File('${file.path}.tmp');
-    await temp.writeAsString(makeAppBackup(state, lang, theme, notes, now), flush: true);
+    await temp.writeAsString(makeAppBackup(state, lang, theme, notes, now, groups), flush: true);
     await temp.rename(file.path);
     final files = directory
         .listSync()

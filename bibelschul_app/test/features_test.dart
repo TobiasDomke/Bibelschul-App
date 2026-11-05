@@ -56,6 +56,18 @@ void main() {
     expect(parseBackup(raw).state.config.amount, 30); // the web parser accepts it
   });
 
+  test('backups keep the reading-group access so a reinstall keeps the groups', () {
+    final s = _plan();
+    const token = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ';
+    final raw = makeAppBackup(s, Lang.de, 'light', const [], null, (token: token, name: 'Tobi'));
+    expect((jsonDecode(raw) as Map)['version'], 9);
+    final restored = parseAppBackup(raw);
+    expect(restored.groups?.token, token);
+    expect(restored.groups?.name, 'Tobi');
+    final broken = (jsonDecode(raw) as Map)..['groups'] = {'token': 'short', 'name': 'x'};
+    expect(() => parseAppBackup(jsonEncode(broken)), throwsA(isA<AppError>()));
+  });
+
   test('backups with notes use version 9 and restore the notes', () {
     final s = _plan();
     final note = ReadingNote(

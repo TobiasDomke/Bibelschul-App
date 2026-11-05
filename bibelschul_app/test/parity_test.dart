@@ -9,6 +9,7 @@ import 'package:bibelschul_app/core/actions.dart';
 import 'package:bibelschul_app/core/adaptive.dart';
 import 'package:bibelschul_app/core/backup.dart';
 import 'package:bibelschul_app/core/deadline.dart';
+import 'package:bibelschul_app/core/difficulty.dart';
 import 'package:bibelschul_app/core/exports.dart';
 import 'package:bibelschul_app/core/languages.dart';
 import 'package:bibelschul_app/core/pace.dart';
@@ -24,6 +25,10 @@ Map<String, Object?> _withId(Map<String, Object?> json) => {...json, 'id': 'PLAN
 
 void main() {
   tzdata.initializeTimeZones();
+  // The web app balances by plain word counts at 180 words per minute. These
+  // tests check the ported algorithms in exactly that mode; the app itself uses
+  // the reading-effort model (core/difficulty.dart).
+  legacyReadingModel = true;
   final file = File('test/fixtures/parity.json');
   if (!file.existsSync()) {
     test('parity fixture missing', () {

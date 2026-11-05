@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import '../core/insights.dart';
 import '../core/pace.dart';
 import '../core/state.dart';
@@ -32,10 +30,7 @@ String? lastReadDate(ReadingState state) {
   return last;
 }
 
-/// Reading speed in words per minute, only once measured sessions exist.
-/// Word counts come from the Luther 1912 text, so this is a comparable
-/// approximation rather than an exact figure for every edition.
-int? wordsPerMinute(ReadingPace pace) {
-  if (!pace.personal || pace.secondsPerWord <= 0) return null;
-  return min(2000, max(1, (60 / pace.secondsPerWord).round()));
-}
+/// Reading speed in words per minute, measured with the timer (recent
+/// sessions count more). Word counts come from the Luther 1912 text, so this
+/// is a comparable approximation rather than an exact figure for every edition.
+int? wordsPerMinute(ReadingPace pace) => pace.wordsPerMinute;

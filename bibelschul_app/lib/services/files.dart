@@ -22,6 +22,18 @@ Future<bool> shareFile(String content, String filename, String mimeType) async {
   return result.status != ShareResultStatus.unavailable;
 }
 
+/// Shares binary data such as a generated statistics image.
+Future<bool> shareBytes(List<int> bytes, String filename, String mimeType, {String? text}) async {
+  final dir = await getTemporaryDirectory();
+  final file = File('${dir.path}/$filename');
+  await file.writeAsBytes(bytes, flush: true);
+  final result = await SharePlus.instance.share(ShareParams(
+    files: [XFile(file.path, mimeType: mimeType, name: filename)],
+    text: text,
+  ));
+  return result.status != ShareResultStatus.unavailable;
+}
+
 /// Lets the user pick a backup file (web app or app format) and validates it.
 /// Returns null when cancelled.
 Future<AppBackup?> pickBackup() async {

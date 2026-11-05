@@ -8,7 +8,6 @@ import '../core/util.dart';
 import '../i18n/app_texts.dart';
 import '../i18n/i18n.dart';
 import 'dialogs.dart';
-import 'notes_ui.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -55,7 +54,6 @@ class _DaySheet extends StatelessWidget {
     final finished = v.planState.adaptive?.finished.contains(index) ?? false;
     final seconds = daySeconds(v.state, index, v.now);
     final items = v.ordered(day.chapters);
-    final note = c.noteFor(index);
 
     final status = finished
         ? u['dayFinished']
@@ -96,7 +94,7 @@ class _DaySheet extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       Expanded(child: Text(v.readLabel([ch]))),
-                      Muted('${t.approx} ${fmt.time(estimatedSeconds(ch.words, v.pace))}', size: 12.5),
+                      Muted('${t.approx} ${fmt.time(chaptersSeconds([ch], v.pace))}', size: 12.5),
                     ]),
                   ),
               ]),
@@ -107,13 +105,6 @@ class _DaySheet extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(child: Text(fill(u['dayMeasured'], {'time': fmt.time(seconds)}))),
             ]),
-          if (note != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: palette.accent, borderRadius: BorderRadius.circular(12)),
-              child: Text(note.text),
-            ),
           Wrap(spacing: 8, runSpacing: 8, children: [
             if (isToday)
               FilledButton.icon(
@@ -131,13 +122,6 @@ class _DaySheet extends StatelessWidget {
                     : () => showTimeCorrectionDialog(context, c, index, seconds),
                 icon: const Icon(Icons.edit_outlined, size: 18),
                 label: Text(t.editTime),
-              ),
-            if (past || finished)
-              OutlinedButton.icon(
-                onPressed: () => showNoteEditor(context, c,
-                    day: index, date: day.date, passage: items.isEmpty ? fmt.date(day.date) : v.readLabel(items)),
-                icon: const Icon(Icons.edit_note, size: 18),
-                label: Text(note == null ? u['addNote'] : u['editNote']),
               ),
           ]),
         ]),

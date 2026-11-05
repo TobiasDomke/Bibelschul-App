@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../app/controller.dart';
 import '../app/plan_view.dart';
 import '../core/exports.dart';
+import '../core/pace.dart';
 import '../core/util.dart';
 import '../i18n/app_texts.dart';
 import '../i18n/i18n.dart';
@@ -92,7 +93,7 @@ class PlanTab extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(children: [
             for (final d in v.days.skip(page * perPage).take(perPage))
-              _row(context, d.index, d.date, d.chapters.isEmpty, d.words, v.readLabel(d.chapters),
+              _row(context, d.index, d.date, d.chapters.isEmpty, chaptersSeconds(d.chapters, v.pace), v.readLabel(d.chapters),
                   v.planState.adaptive?.finished.contains(d.index) ?? false),
           ]),
         ),
@@ -125,7 +126,7 @@ class PlanTab extends StatelessWidget {
     ]);
   }
 
-  Widget _row(BuildContext context, int index, String date, bool empty, int words, String label, bool isDone) {
+  Widget _row(BuildContext context, int index, String date, bool empty, double seconds, String label, bool isDone) {
     final lang = c.lang;
     final t = text(lang), u = ui(lang);
     final fmt = Fmt(lang);
@@ -157,7 +158,7 @@ class PlanTab extends StatelessWidget {
               ]),
             ),
             const SizedBox(width: 8),
-            Text(words > 0 && !past ? fmt.time(v.pace.secondsPerWord * words) : '',
+            Text(seconds > 0 && !past ? fmt.time(seconds) : '',
                 style: TextStyle(fontWeight: FontWeight.w600, color: palette.mutedForeground, fontSize: 13)),
           ]),
         ),

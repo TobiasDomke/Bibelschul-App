@@ -93,7 +93,7 @@ ReadingTimeSummary readingTimeSummary(ReadingState state, [int? now, ReadingPace
       .where((c) => state.done.containsKey(c.id) && !previous.contains(c.id) && !measured.contains(c.id))
       .toList();
   final remaining = inventory.where((c) => !previous.contains(c.id) && !state.done.containsKey(c.id)).toList();
-  double estimate(List<Chapter> cs) => estimatedSeconds(cs.fold<int>(0, (s, c) => s + c.words), p);
+  double estimate(List<Chapter> cs) => chaptersSeconds(cs, p);
   final int measuredSeconds = state.logs.fold<int>(0, (s, l) => s + l.seconds) +
       (state.timer != null ? max(0, ((n - state.timer!.startedAt) / 1000).floor()) : 0);
   final previousSeconds = estimate(previousChapters);

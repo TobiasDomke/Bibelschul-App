@@ -70,8 +70,8 @@ class _DeadlineDialogState extends State<_DeadlineDialog> {
           if (!preview.adaptive!.finished.contains(start + i)) ids,
       ];
       final inventory = chaptersFor(state.config.edition);
-      final words = remaining.expand((x) => x).fold<int>(0, (s, id) => s + inventory[id].words);
-      estimate = estimatedSeconds(words / max(1, remaining.length), readingPace(state));
+      final open = [for (final id in remaining.expand((x) => x)) inventory[id]];
+      estimate = chaptersSeconds(open, readingPace(state)) / max(1, remaining.length);
       days = remaining.length;
       count = remaining.expand((x) => x).length;
     }

@@ -121,18 +121,9 @@ void main() {
     // The saved message names the chapters that moved to the next days.
     expect(find.textContaining('nicht gelesene Kapitel'), findsOneWidget);
 
-    // A note for the finished unit.
-    await _tap(tester, find.widgetWithText(TextButton, 'Gedanken notieren'));
-    await tester.enterText(find.byType(TextField), 'Am Anfang schuf Gott – alles beginnt bei ihm.');
-    await _shot(tester, '06b-note-editor');
-    await _tap(tester, find.widgetWithText(FilledButton, 'Speichern'), real: true);
-    expect(c.notes.single.text, startsWith('Am Anfang'));
-    await _shot(tester, '06c-today-with-note');
-
     // The other tabs.
     for (final (label, name) in [
       ('Leseplan', '07-plan'),
-      ('Notizen', '07b-notes'),
       ('Statistik', '08-stats'),
       ('Einstellungen', '09-settings'),
     ]) {

@@ -118,7 +118,7 @@ List<Day> readingPlan(ReadingState state, [String? date]) {
   return [
     for (final (index, ids) in prepared.adaptive!.days.indexed)
       Day(index, addDays(state.config.start, index), [for (final id in ids) cs[id]],
-          ids.fold(0, (sum, id) => sum + cs[id].words)),
+          ids.fold(0, (sum, id) => sum + cs[id].effort)),
   ];
 }
 

@@ -74,6 +74,9 @@ class PlanView {
   late final int doneCount = doneSet.length;
   late final int readWords = scoped.where((ch) => doneSet.containsKey(ch.id)).fold(0, (s, ch) => s + ch.words);
   late final double percent = jsRound(readWords / totalWords * 1000) / 10;
+
+  /// Unrounded share of the text read, for displays with more decimals.
+  late final double percentExact = readWords / totalWords * 100;
   late final int totalSeconds = timeSummary.measuredSeconds;
   late final List<Session> timedSessions = sessions.where((s) => s.seconds > 0).toList();
   late final double averageSession =
@@ -89,6 +92,10 @@ class PlanView {
   late final Set<int> extraIds = {...?planState.adaptive?.extra[day.index]};
   late final Chapter? nextExtra = nextExtraChapter(planState, day.index);
   late final int remainingWords = totalWords - readWords;
+
+  /// Estimated reading time for every chapter still open in the plan.
+  late final double remainingSeconds =
+      chaptersSeconds(scoped.where((ch) => !doneSet.containsKey(ch.id)), pace);
   late final int remainingDays = max(0, days.length - dateIndex - 1);
   late final int remainingChapters = scoped.length - doneCount;
   late final int sessionSeconds = canRead && !dayDone

@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 import "fake-indexeddb/auto";
+// The plan below starts on a fixed date; freeze "today" to that start day so the
+// test does not depend on the day it runs.
+const RealDate = Date;
+const fixedNow = RealDate.parse("2026-10-06T10:00:00Z");
+globalThis.Date = class extends RealDate {
+  constructor(...args) {
+    super(...(args.length ? args : [fixedNow]));
+  }
+  static now() {
+    return fixedNow;
+  }
+};
 import { IDBFactory, IDBObjectStore } from "fake-indexeddb";
 await build({
   entryPoints: ["lib/local-storage.ts", "lib/actions.ts", "lib/backup.ts"],

@@ -13,7 +13,6 @@ import '../i18n/feature_texts.dart';
 import '../i18n/i18n.dart';
 import 'day_sheet.dart';
 import 'dialogs.dart';
-import 'notes_ui.dart';
 import 'small_parts.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -33,7 +32,6 @@ class TodayTab extends StatelessWidget {
       final sample = v.pendingSample!;
       final ids = {...sample.chapters, if (all) ...v.sessionItems.map((ch) => ch.id)};
       final chapters = [for (final ch in v.sessionItems) if (ids.contains(ch.id)) ch];
-      final words = chapters.fold<int>(0, (n, ch) => n + ch.words);
       final use = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -41,7 +39,7 @@ class TodayTab extends StatelessWidget {
           content: Text(fill(u['unusualText'], {
             'measured': fmt.time(sample.seconds),
             'passage': chapters.isEmpty ? t.rest : v.readLabel(chapters),
-            'expected': fmt.time(estimatedSeconds(words, v.pace)),
+            'expected': fmt.time(chaptersSeconds(chapters, v.pace)),
           })),
           actionsOverflowDirection: VerticalDirection.up,
           actions: [
@@ -78,26 +76,6 @@ class TodayTab extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// One question per kind of text in today's reading (up to three), so a
-  /// mixed day gets questions that fit each part. Rotates by day.
-  List<String> _questions() {
-    final x = featureText(c.lang);
-    final genres = <String>[];
-    for (final ch in v.sessionItems) {
-      final g = genreOfBook(ch.bookIndex);
-      if (!genres.contains(g)) genres.add(g);
-    }
-    if (genres.isEmpty) return const [];
-    final day = v.day.index;
-    if (genres.length == 1) {
-      final list = x.questions[genres.first]!;
-      return [for (var i = 0; i < list.length; i++) list[(i + day) % list.length]];
-    }
-    return [
-      for (final g in genres.take(3)) x.questions[g]![day % x.questions[g]!.length],
-    ];
   }
 
   @override
@@ -220,14 +198,6 @@ class TodayTab extends StatelessWidget {
 
     final unchecked = items.where((ch) => !v.doneSet.containsKey(ch.id)).toList();
     final checked = items.length - unchecked.length;
-    final note = c.noteFor(day.index);
-    final readSomething = checked > 0 || v.dayDone;
-    final questions = (v.canRead || readSomething) ? _questions() : const <String>[];
-    void editNote([String? prompt]) => showNoteEditor(context, c,
-        day: day.index,
-        date: v.dayDone || day.date.compareTo(v.currentDate) < 0 ? day.date : v.currentDate,
-        passage: v.fixed ? bible52Units[day.index].label : v.readLabel(v.sessionItems),
-        prompt: prompt);
     final timerLocked = s.timer != null && !v.running;
 
     final readingCard = Panel(
@@ -260,7 +230,7 @@ class TodayTab extends StatelessWidget {
             _meta(
                 context,
                 Icons.schedule,
-                '${t.approx} ${fmt.time(estimatedSeconds(day.words, v.pace))}'
+                '${t.approx} ${fmt.time(chaptersSeconds(day.chapters, v.pace))}'
                 '${v.pace.personal ? ' · ${u['yourPace']}' : ''}'),
         ]),
         ReadingContext(config: s.config, items: v.sessionItems, lang: lang),
@@ -297,7 +267,7 @@ class TodayTab extends StatelessWidget {
                     if (v.extraIds.contains(ch.id))
                       TextSpan(text: '  ${t.additional}', style: TextStyle(fontSize: 12, color: palette.ring)),
                   ])),
-                  secondary: Muted('${t.approx} ${fmt.time(estimatedSeconds(ch.words, v.pace))}', size: 12.5),
+                  secondary: Muted('${t.approx} ${fmt.time(chaptersSeconds([ch], v.pace))}', size: 12.5),
                 ),
               ),
           ]),
@@ -345,31 +315,6 @@ class TodayTab extends StatelessWidget {
               label: Text(v.fixed ? f.next : t.continueReading),
             ),
         ],
-        if (questions.isNotEmpty)
-          Details(summary: x['questions'], children: [
-            Muted(u['reflectTap'], size: 13),
-            for (final q in questions)
-              Material(
-                color: palette.muted,
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => editNote(q),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2, right: 8),
-                        child: Icon(Icons.chat_bubble_outline, size: 16, color: palette.ring),
-                      ),
-                      Expanded(child: Text(q)),
-                      Icon(Icons.edit_note, size: 18, color: palette.mutedForeground),
-                    ]),
-                  ),
-                ),
-              ),
-          ]),
-        if (v.canRead || readSomething || note != null) NotePreview(c: c, note: note, onEdit: editNote),
       ]),
     );
 
@@ -379,7 +324,7 @@ class TodayTab extends StatelessWidget {
           Expanded(child: Heading(t.progress, size: 17)),
           Text.rich(TextSpan(children: [
             TextSpan(
-                text: formattedPercent(v.percent, lang),
+                text: formattedPercent(v.percentExact, lang),
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: palette.foreground)),
             TextSpan(text: ' %', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: palette.foreground)),
           ])),
@@ -426,7 +371,7 @@ class TodayTab extends StatelessWidget {
                       d.date.compareTo(v.currentDate) < 0 && d.chapters.isEmpty ? t.noReadingLogged : v.readLabel(d.chapters),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    Muted(d.words > 0 ? '${t.approx} ${fmt.time(estimatedSeconds(d.words, v.pace))}' : t.rest,
+                    Muted(d.words > 0 ? '${t.approx} ${fmt.time(chaptersSeconds(d.chapters, v.pace))}' : t.rest,
                         size: 12.5),
                   ]),
                 ),
@@ -484,9 +429,7 @@ class TodayTab extends StatelessWidget {
             Text(fill(x['behind'], {'chapters': behind.chapters}), style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             Text(fill(x['behindHelp'], {
-              'time': fmt.time(v.remainingDays > 0
-                  ? estimatedSeconds(v.remainingWords / (v.remainingDays + 1), v.pace)
-                  : estimatedSeconds(v.remainingWords, v.pace)),
+              'time': fmt.time(v.remainingDays > 0 ? v.remainingSeconds / (v.remainingDays + 1) : v.remainingSeconds),
             })),
           ]),
           actions: [

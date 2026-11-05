@@ -14,6 +14,7 @@ import '../services/files.dart';
 import '../services/groups_api.dart';
 import 'dialogs.dart';
 import 'settings_tab.dart' show ScanPage;
+import 'small_parts.dart' show formattedPercent;
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -401,7 +402,7 @@ class _GroupCard extends StatelessWidget {
     if (value == null) return '–';
     return switch (metric) {
       Metric.chapters || Metric.week => fill(u['valueChapters'], {'n': fmt.number(value)}),
-      Metric.progress => '${value < 1 && value > 0 ? '< 1' : fmt.number(value.floor())} %',
+      Metric.progress => '${formattedPercent(value.toDouble(), lang)} %',
       Metric.streak => fill(value == 1 ? u['valueDay'] : u['valueDays'], {'n': fmt.number(value)}),
       Metric.speed => fill(u['valueSpeed'], {'n': fmt.number(value)}),
       Metric.time => fmt.time(value * 60),

@@ -241,6 +241,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notes = mergeRestoredNotes(notes, backup.notes, backup.backup.state.id, restoredState.id);
     await store.writeNotes(notes);
     restored(restoredState, backup.backup.theme);
+    final access = backup.groups;
+    if (access != null) unawaited(groups.restoreAccess(access, PlanView.of(this)));
     return restoredState;
   }
 
@@ -361,7 +363,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (s == null) return;
     if (backup && prefs.autoBackup && autoBackups != null) {
       try {
-        await autoBackups!.write(s, lang, backupTheme, notes);
+        await autoBackups!.write(s, lang, backupTheme, notes, null, groups.access);
         prefs.lastAutoBackup = DateTime.now().millisecondsSinceEpoch;
       } catch (_) {}
     }

@@ -24,6 +24,13 @@ Iterable<String> get uiTextKeys => _de.keys;
 Map<Lang, Map<String, String>> get uiTextTables => const {Lang.de: _de, Lang.en: _en, Lang.ru: _ru, Lang.uk: _uk};
 
 const Map<String, String> _de = {
+  'shareStats': 'Statistik teilen',
+  'shareImage': 'Als Bild teilen',
+  'shareCsv': 'Alle Daten als Tabelle (CSV)',
+  'shareStatsText': 'Mein Leseweg: {percent} % gelesen.',
+  'cardTitle': 'MEIN LESEWEG',
+  'cardRead': 'gelesen · {scope}',
+  'backupGroupsHint': 'Die Sicherung enthält auch deinen Zugang zu den Lesegruppen. Gib sie deshalb nicht weiter.',
   // Setup
   'introText':
       'Du liest in deiner gedruckten Bibel – Leseweg plant, erinnert und zeigt deinen Fortschritt. Ohne Konto, alles bleibt auf deinem Gerät.',
@@ -106,7 +113,6 @@ const Map<String, String> _de = {
       'Der Timer misst deine Lesezeit, auch bei gesperrtem Bildschirm. Daraus lernt die App dein Tempo und schätzt die Minuten pro Tag genauer.',
   'howPlan':
       'Liest du weniger, verteilen sich die offenen Kapitel auf die restlichen Tage. Liest du mehr, wird es an den folgenden Tagen weniger. Dein Zieldatum bleibt, bis du es selbst änderst.',
-  'reflectTap': 'Tippe auf eine Frage, um deine Gedanken dazu festzuhalten.',
   'chaptersOf': '{done} von {total} Kapiteln gelesen',
   // Day details
   'dayToday': 'Das ist deine heutige Lesung.',
@@ -115,8 +121,6 @@ const Map<String, String> _de = {
   'dayPreview': 'Vorschau: Die Einteilung passt sich deinem Fortschritt an. Lesen kannst du am jeweiligen Tag.',
   'dayMeasured': 'Gemessene Lesezeit: {time}',
   'readNow': 'Jetzt lesen',
-  'addNote': 'Notiz schreiben',
-  'editNote': 'Notiz bearbeiten',
   // Plan
   'coverage': '{done} von {total} Kapiteln gelesen · {open} offen',
   'coveragePrevious': 'Davon {count} schon vor dem Plan gelesen.',
@@ -126,10 +130,6 @@ const Map<String, String> _de = {
   'todayLabel': 'heute',
   'b52Explain': 'Jeder Wochentag hat ein festes Thema. Du kannst jeden offenen Abschnitt lesen – auch wenn du einmal zurückliegst.',
   // Notes
-  'newNote': 'Notiz zur heutigen Lesung',
-  'editTodayNote': 'Heutige Notiz bearbeiten',
-  'noNotes':
-      'Noch keine Notizen. Halte fest, was dich beim Lesen anspricht – zum Beispiel zu einer Frage unter „Zum Nachdenken“.',
   // Statistics
   'segMe': 'Meine Zahlen',
   'segGroups': 'Gruppen',
@@ -229,6 +229,13 @@ const Map<String, String> _de = {
 };
 
 const Map<String, String> _en = {
+  'shareStats': 'Share statistics',
+  'shareImage': 'Share as image',
+  'shareCsv': 'All data as a table (CSV)',
+  'shareStatsText': 'My Leseweg: {percent} % read.',
+  'cardTitle': 'MY LESEWEG',
+  'cardRead': 'read · {scope}',
+  'backupGroupsHint': 'The backup also contains your access to reading groups, so do not pass it on.',
   'introText':
       'You read your printed Bible – Leseweg plans, reminds you and shows your progress. No account; everything stays on your device.',
   'newPlanTitle': 'Create a new plan',
@@ -309,7 +316,6 @@ const Map<String, String> _en = {
       'The timer measures your reading time, even when the screen is locked. The app learns your pace from it and estimates the daily minutes more accurately.',
   'howPlan':
       'If you read less, the open chapters spread over the remaining days. If you read more, the following days get shorter. Your target date stays until you change it.',
-  'reflectTap': 'Tap a question to write down your thoughts on it.',
   'chaptersOf': '{done} of {total} chapters read',
   'dayToday': 'This is today’s reading.',
   'dayFinished': 'Read and saved.',
@@ -317,8 +323,6 @@ const Map<String, String> _en = {
   'dayPreview': 'Preview: the split adapts to your progress. You can read it on that day.',
   'dayMeasured': 'Measured reading time: {time}',
   'readNow': 'Read now',
-  'addNote': 'Write a note',
-  'editNote': 'Edit note',
   'coverage': '{done} of {total} chapters read · {open} to go',
   'coveragePrevious': '{count} of them read before the plan.',
   'calendar': 'Add to calendar',
@@ -326,9 +330,6 @@ const Map<String, String> _en = {
   'jumpToday': 'Today',
   'todayLabel': 'today',
   'b52Explain': 'Each weekday has a fixed theme. You can read any open unit – even if you fall behind.',
-  'newNote': 'Note on today’s reading',
-  'editTodayNote': 'Edit today’s note',
-  'noNotes': 'No notes yet. Write down what speaks to you while reading – for example about a question under “To reflect on”.',
   'segMe': 'My numbers',
   'segGroups': 'Groups',
   'statsSub': 'Your journey in numbers. Every passage you read counts.',
@@ -425,6 +426,13 @@ const Map<String, String> _en = {
 };
 
 const Map<String, String> _ru = {
+  'shareStats': 'Поделиться статистикой',
+  'shareImage': 'Поделиться картинкой',
+  'shareCsv': 'Все данные таблицей (CSV)',
+  'shareStatsText': 'Мой Leseweg: прочитано {percent} %.',
+  'cardTitle': 'МОЙ LESEWEG',
+  'cardRead': 'прочитано · {scope}',
+  'backupGroupsHint': 'Резервная копия содержит и доступ к твоим группам чтения, поэтому не передавай её другим.',
   'introText':
       'Ты читаешь печатную Библию – Leseweg составляет план, напоминает и показывает прогресс. Без аккаунта, всё остаётся на твоём устройстве.',
   'newPlanTitle': 'Новый план',
@@ -505,7 +513,6 @@ const Map<String, String> _ru = {
       'Таймер измеряет время чтения, даже при заблокированном экране. По нему приложение узнаёт твой темп и точнее рассчитывает минуты в день.',
   'howPlan':
       'Если читаешь меньше, оставшиеся главы распределяются на остальные дни. Если больше – следующие дни становятся короче. Дата цели остаётся, пока ты сам её не изменишь.',
-  'reflectTap': 'Нажми на вопрос, чтобы записать свои мысли.',
   'chaptersOf': 'Прочитано {done} из {total} глав',
   'dayToday': 'Это твоё чтение на сегодня.',
   'dayFinished': 'Прочитано и сохранено.',
@@ -513,8 +520,6 @@ const Map<String, String> _ru = {
   'dayPreview': 'Предпросмотр: распределение подстраивается под твой прогресс. Читать можно в этот день.',
   'dayMeasured': 'Измеренное время: {time}',
   'readNow': 'Читать сейчас',
-  'addNote': 'Написать заметку',
-  'editNote': 'Изменить заметку',
   'coverage': 'Прочитано {done} из {total} глав · осталось {open}',
   'coveragePrevious': 'Из них {count} прочитано до плана.',
   'calendar': 'Добавить в календарь',
@@ -522,9 +527,6 @@ const Map<String, String> _ru = {
   'jumpToday': 'К сегодня',
   'todayLabel': 'сегодня',
   'b52Explain': 'У каждого дня недели своя тема. Можно читать любой открытый раздел – даже если отстаёшь.',
-  'newNote': 'Заметка к сегодняшнему чтению',
-  'editTodayNote': 'Изменить сегодняшнюю заметку',
-  'noNotes': 'Заметок пока нет. Записывай, что тебя затронуло при чтении – например, по вопросу из «Для размышления».',
   'segMe': 'Мои цифры',
   'segGroups': 'Группы',
   'statsSub': 'Твой путь в цифрах. Каждый прочитанный отрывок важен.',
@@ -621,6 +623,13 @@ const Map<String, String> _ru = {
 };
 
 const Map<String, String> _uk = {
+  'shareStats': 'Поділитися статистикою',
+  'shareImage': 'Поділитися зображенням',
+  'shareCsv': 'Усі дані таблицею (CSV)',
+  'shareStatsText': 'Мій Leseweg: прочитано {percent} %.',
+  'cardTitle': 'МІЙ LESEWEG',
+  'cardRead': 'прочитано · {scope}',
+  'backupGroupsHint': 'Резервна копія містить і доступ до твоїх груп читання, тож не передавай її іншим.',
   'introText':
       'Ти читаєш друковану Біблію – Leseweg складає план, нагадує й показує поступ. Без облікового запису, усе залишається на твоєму пристрої.',
   'newPlanTitle': 'Новий план',
@@ -701,7 +710,6 @@ const Map<String, String> _uk = {
       'Таймер вимірює час читання, навіть коли екран заблоковано. Із нього застосунок дізнається твій темп і точніше рахує хвилини на день.',
   'howPlan':
       'Якщо читаєш менше, решта розділів розподіляється на інші дні. Якщо більше – наступні дні стають коротшими. Дата цілі лишається, доки ти сам її не зміниш.',
-  'reflectTap': 'Натисни на запитання, щоб записати свої думки.',
   'chaptersOf': 'Прочитано {done} з {total} розділів',
   'dayToday': 'Це твоє читання на сьогодні.',
   'dayFinished': 'Прочитано і збережено.',
@@ -709,8 +717,6 @@ const Map<String, String> _uk = {
   'dayPreview': 'Попередній перегляд: розподіл підлаштовується під твій поступ. Читати можна цього дня.',
   'dayMeasured': 'Виміряний час: {time}',
   'readNow': 'Читати зараз',
-  'addNote': 'Написати нотатку',
-  'editNote': 'Змінити нотатку',
   'coverage': 'Прочитано {done} з {total} розділів · залишилось {open}',
   'coveragePrevious': 'З них {count} прочитано до плану.',
   'calendar': 'Додати до календаря',
@@ -718,9 +724,6 @@ const Map<String, String> _uk = {
   'jumpToday': 'До сьогодні',
   'todayLabel': 'сьогодні',
   'b52Explain': 'Кожен день тижня має свою тему. Можна читати будь-який відкритий розділ – навіть якщо відстаєш.',
-  'newNote': 'Нотатка до сьогоднішнього читання',
-  'editTodayNote': 'Змінити сьогоднішню нотатку',
-  'noNotes': 'Нотаток поки немає. Записуй, що тебе торкнулося під час читання – наприклад, до запитання з «Для роздумів».',
   'segMe': 'Мої цифри',
   'segGroups': 'Групи',
   'statsSub': 'Твій шлях у цифрах. Кожен прочитаний уривок важливий.',

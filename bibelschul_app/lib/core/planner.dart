@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'book_order.dart';
 import 'data.g.dart';
+import 'difficulty.dart';
 import 'editions.dart';
 import 'reading_order.dart';
 import 'state.dart';
@@ -15,13 +16,20 @@ class Chapter {
   final String code;
   final int number;
   final int words;
-  const Chapter(this.id, this.bookIndex, this.book, this.code, this.number, this.words);
+
+  /// Reading effort: words weighted by the kind of text (difficulty.dart).
+  /// Plans are balanced and reading time is estimated by effort.
+  final int effort;
+  Chapter(this.id, this.bookIndex, this.book, this.code, this.number, this.words)
+      : effort = chapterEffort(code, number, words);
 }
 
 class Day {
   final int index;
   final String date;
   final List<Chapter> chapters;
+  /// Reading effort of the day (sum of the chapters' effort; equals the word
+  /// count in the legacy model). Kept under this name for parity with the web app.
   int words;
   Day(this.index, this.date, this.chapters, this.words);
 }
@@ -93,7 +101,7 @@ List<Chapter> _mapEditorial(List<Chapter> items, String? edition) {
 
 final int totalWords = chapters.fold(0, (sum, c) => sum + c.words);
 
-int minutes(int words) => max(1, jsRound(words / 180));
+int minutes(int words) => max(1, jsRound(words * defaultSecondsPerEffort / 60));
 
 bool isBible52(Config config) => config.template == 'bible52';
 
@@ -268,7 +276,7 @@ List<Chapter> _mixedChapters(List<Chapter> items) {
     }
     final chapter = best!.items[best.cursor++];
     result.add(chapter);
-    best.read += chapter.words;
+    best.read += chapter.effort;
   }
   return result;
 }
@@ -278,7 +286,7 @@ class _Stream {
   int cursor = 0;
   int read = 0;
   final int total;
-  _Stream(this.items) : total = items.fold(0, (s, c) => s + c.words);
+  _Stream(this.items) : total = items.fold(0, (s, c) => s + c.effort);
 }
 
 final Map<String, List<Chapter>> _orderCache = {};
@@ -338,7 +346,7 @@ List<Day> createPlan(Config config, [List<int> previouslyRead = const []]) {
       for (final u in bible52Units)
         () {
           final cs = u.chapters.where((c) => !previous.contains(c.id)).toList();
-          return Day(u.index, addDays(config.start, u.index), cs, cs.fold(0, (n, c) => n + c.words));
+          return Day(u.index, addDays(config.start, u.index), cs, cs.fold(0, (n, c) => n + c.effort));
         }(),
     ];
   } else {
@@ -356,12 +364,12 @@ List<Day> distributeChapters(List<Chapter> items, int days, String start, [Bound
     for (final (i, c) in items.indexed) {
       final day = result[(i * days) ~/ items.length];
       day.chapters.add(c);
-      day.words += c.words;
+      day.words += c.effort;
     }
     return result;
   }
   var cursor = 0;
-  var remainingWords = items.fold<int>(0, (sum, c) => sum + c.words);
+  var remainingWords = items.fold<int>(0, (sum, c) => sum + c.effort);
   for (var i = 0; i < days; i++) {
     final remainingDays = days - i;
     final target = remainingWords / remainingDays;
@@ -370,10 +378,10 @@ List<Day> distributeChapters(List<Chapter> items, int days, String start, [Bound
     do {
       final c = items[cursor++];
       day.chapters.add(c);
-      day.words += c.words;
+      day.words += c.effort;
     } while (cursor < lastExclusive &&
         (remainingDays == 1 ||
-            (day.words + items[cursor].words - target).abs() <= (day.words - target).abs()));
+            (day.words + items[cursor].effort - target).abs() <= (day.words - target).abs()));
     if (preferredBoundary != null && remainingDays > 1) {
       final begin = cursor - day.chapters.length;
       final baseline = (day.words - target).abs();
@@ -382,7 +390,7 @@ List<Day> distributeChapters(List<Chapter> items, int days, String start, [Bound
       var bestCost = baseline + (preferredBoundary(items[cursor - 1], items[cursor]) ? 0 : target * 0.2);
       var words = 0;
       for (var end = begin + 1; end <= lastExclusive; end++) {
-        words += items[end - 1].words;
+        words += items[end - 1].effort;
         if ((words - target).abs() <= baseline + target * 0.25) {
           final cost = (words - target).abs() + (preferredBoundary(items[end - 1], items[end]) ? 0 : target * 0.2);
           if (cost < bestCost) {

@@ -83,7 +83,7 @@ String csvFile(ReadingState state, Lang lang, [int? now]) {
         planText(lang).previous,
         '',
         passage(previous, names),
-        estimatedMinutes(previous.fold<int>(0, (sum, c) => sum + c.words), pace),
+        estimatedMinutes(previous.fold<int>(0, (sum, c) => sum + c.effort), pace),
         '',
         passage(previous, names),
       ],
