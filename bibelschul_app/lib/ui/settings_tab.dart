@@ -398,7 +398,7 @@ class _BackupCardState extends State<BackupCard> {
       child: Gap(children: [
         Icon(Icons.save_outlined, color: context.palette.primary),
         Heading(t.localData, size: 19),
-        Muted(t.localDataSub),
+        Muted(n.localDataSub),
         if (state != null)
           FinePrint(history.exported > 0 ? '${e.lastExport}: ${Fmt(lang).dateTime(history.exported)}' : e.neverExport),
         Wrap(spacing: 8, runSpacing: 8, children: [
@@ -433,7 +433,7 @@ class _BackupCardState extends State<BackupCard> {
             label: Text(t.backupLoad),
           ),
         ]),
-        FinePrint('${t.backupNote} ${e.backupCaution}'),
+        FinePrint('${n.backupNote} ${n.backupCaution}'),
         FinePrint(n.importHelp),
         if (error.isNotEmpty) Notice(text: error, kind: NoticeKind.error),
       ]),

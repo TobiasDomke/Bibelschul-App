@@ -13,7 +13,13 @@ class NativeTexts {
   final String importHelp;
   final String exportCsv;
   final String about;
+  final String localDataSub;
+  final String backupNote;
+  final String backupCaution;
   const NativeTexts({
+    required this.localDataSub,
+    required this.backupNote,
+    required this.backupCaution,
     required this.reminderTitle,
     required this.reminderIntro,
     required this.reminderPrivacy,
@@ -29,6 +35,12 @@ class NativeTexts {
 
 const nativeTranslations = {
   Lang.de: NativeTexts(
+    localDataSub:
+        'Plan und Lesezeiten werden nur in der App auf diesem Gerät gespeichert. Es gibt keine automatische Synchronisierung zwischen Geräten.',
+    backupNote:
+        'Sichere regelmäßig eine Kopie. Beim Löschen der App können deine Daten verloren gehen. Mit der Sicherung kannst du sie auch auf ein anderes Gerät übertragen.',
+    backupCaution: 'Wähle im Teilen-Menü einen Speicherort, z. B. „In Dateien sichern“.',
+
     reminderTitle: 'Tägliche Erinnerung auf diesem Gerät',
     reminderIntro: 'Leseweg erinnert dich täglich zur gewählten Uhrzeit an das Lesen in deiner Papierbibel.',
     reminderPrivacy:
@@ -43,6 +55,12 @@ const nativeTranslations = {
     about: 'Über Leseweg',
   ),
   Lang.ru: NativeTexts(
+    localDataSub:
+        'План и время чтения хранятся только в приложении на этом устройстве. Автоматической синхронизации между устройствами нет.',
+    backupNote:
+        'Регулярно сохраняй копию. При удалении приложения данные могут исчезнуть. Копия позволяет перенести их на другое устройство.',
+    backupCaution: 'В меню «Поделиться» выбери место сохранения, например «Сохранить в Файлы».',
+
     reminderTitle: 'Ежедневное напоминание на этом устройстве',
     reminderIntro: 'Leseweg каждый день в выбранное время напоминает о чтении твоей печатной Библии.',
     reminderPrivacy:
@@ -57,6 +75,12 @@ const nativeTranslations = {
     about: 'О Leseweg',
   ),
   Lang.en: NativeTexts(
+    localDataSub:
+        'Your plan and reading times are stored only in the app on this device. Devices do not sync automatically.',
+    backupNote:
+        'Keep regular backups. Removing the app can erase your records. You can also use a backup to move them to another device.',
+    backupCaution: 'Choose where to save it in the share sheet, for example “Save to Files”.',
+
     reminderTitle: 'Daily reminder on this device',
     reminderIntro: 'Leseweg reminds you every day at your chosen time to read your paper Bible.',
     reminderPrivacy:
@@ -70,6 +94,12 @@ const nativeTranslations = {
     about: 'About Leseweg',
   ),
   Lang.uk: NativeTexts(
+    localDataSub:
+        'План і час читання зберігаються лише в застосунку на цьому пристрої. Автоматичної синхронізації між пристроями немає.',
+    backupNote:
+        'Регулярно зберігай копію. Після видалення застосунку дані можуть зникнути. Копія дає змогу перенести їх на інший пристрій.',
+    backupCaution: 'У меню «Поділитися» вибери місце збереження, наприклад «Зберегти у Файли».',
+
     reminderTitle: 'Щоденне нагадування на цьому пристрої',
     reminderIntro: 'Leseweg щодня у вибраний час нагадує про читання твоєї паперової Біблії.',
     reminderPrivacy:

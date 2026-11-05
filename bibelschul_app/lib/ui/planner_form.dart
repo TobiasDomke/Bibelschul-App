@@ -45,6 +45,18 @@ class _PlannerFormState extends State<PlannerForm> {
     bookOrderMode: 'auto',
   );
   late final amountController = TextEditingController(text: '${draft.amount}');
+  final _heading = GlobalKey();
+
+  /// Like the web app's heading focus: show the top of the form for each step.
+  void move(int next) {
+    setState(() => step = next);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _heading.currentContext;
+      if (target != null && target.mounted) {
+        Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 250), alignment: 0.05);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -79,7 +91,7 @@ class _PlannerFormState extends State<PlannerForm> {
 
   void submit() {
     if (step < 2) {
-      setState(() => step++);
+      move(step + 1);
       return;
     }
     var submitted = config;
@@ -122,7 +134,7 @@ class _PlannerFormState extends State<PlannerForm> {
         space: 14,
         children: [
           Icon(Icons.calendar_month_outlined, color: palette.primary, size: 26),
-          Heading(p.setup),
+          Heading(p.setup, key: _heading),
           Muted(p.setupHelp),
           Row(children: [
             for (final (i, label) in steps.indexed)
@@ -131,7 +143,7 @@ class _PlannerFormState extends State<PlannerForm> {
                   padding: EdgeInsets.only(right: i < 2 ? 6 : 0),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    onTap: disabled ? null : () => setState(() => step = i),
+                    onTap: disabled ? null : () => move(i),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                       decoration: BoxDecoration(
@@ -348,7 +360,7 @@ class _PlannerFormState extends State<PlannerForm> {
             if (step > 0)
               Expanded(
                 child: OutlinedButton(
-                  onPressed: disabled ? null : () => setState(() => step--),
+                  onPressed: disabled ? null : () => move(step - 1),
                   child: Text(p.back),
                 ),
               ),
