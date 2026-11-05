@@ -353,22 +353,36 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     if (v != null) {
       final t = text(lang), f = featureText(lang);
       final done = readOn(s, v.currentDate);
-      final today = v.days[v.dateIndex.clamp(0, v.days.length - 1)];
+      final index = v.dateIndex.clamp(0, v.days.length - 1);
+      final nextIndex = (index + 1).clamp(0, v.days.length - 1);
+      String label(int day) => v.readLabel(v.fixed ? v.days[day].chapters : v.sessionItemsFor(day));
+      String detail(int day) => v.fixed ? bible52Position(day, lang) : '${t.day} ${day + 1} / ${v.days.length}';
       await NativeBridge.instance.updateWidget(
+        date: v.currentDate,
         title: done ? f['widgetDone'] : t.today,
-        passage: v.readLabel(v.fixed ? today.chapters : v.sessionItemsFor(v.dateIndex)),
-        detail: v.fixed ? bible52Position(v.dateIndex, lang) : '${t.day} ${v.dateIndex + 1} / ${v.days.length}',
+        todayTitle: t.today,
+        passage: label(index),
+        detail: detail(index),
+        nextPassage: label(v.fixed ? index : nextIndex),
+        nextDetail: detail(v.fixed ? index : nextIndex),
         progress: v.percent / 100,
         done: done,
       );
       final timer = s.timer;
-      if (timer != null && before?.timer == null) {
+      if (timer != null) {
+        // Count from the start of the whole unit, including paused segments.
+        final draft = s.pace?.draft;
+        final before = draft?.day == timer.day
+            ? draft!.secondsBefore
+            : v.sessions.where((x) => x.day == timer.day).fold<int>(0, (n, x) => n + x.seconds);
+        final sessionSeconds = (daySeconds(s, timer.day) - before).clamp(0, 1 << 31);
         await NativeBridge.instance.startTimer(
-          startedAt: timer.startedAt,
+          startedAt: DateTime.now().millisecondsSinceEpoch - sessionSeconds * 1000,
           title: f['liveTimer'],
-          passage: v.readLabel(v.sessionItemsFor(timer.day)),
+          passage: label(timer.day),
         );
-      } else if (timer == null && before?.timer != null) {
+      } else if (before == null || before.timer != null) {
+        // Also on app start: end a lock-screen timer left over from an earlier run.
         await NativeBridge.instance.stopTimer();
       }
     }

@@ -20,18 +20,27 @@ class NativeBridge {
     }
   }
 
-  /// Data shown by the home-screen widget.
+  /// Data shown by the home-screen widget. [date] is the local reading date;
+  /// after midnight the widget switches to [nextPassage] until the app opens.
   Future<void> updateWidget({
+    required String date,
     required String title,
+    required String todayTitle,
     required String passage,
     required String detail,
+    required String nextPassage,
+    required String nextDetail,
     required double progress,
     required bool done,
   }) =>
       _call('updateWidget', {
+        'date': date,
         'title': title,
+        'todayTitle': todayTitle,
         'passage': passage,
         'detail': detail,
+        'nextPassage': nextPassage,
+        'nextDetail': nextDetail,
         'progress': progress,
         'done': done,
       });

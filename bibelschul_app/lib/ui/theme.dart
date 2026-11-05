@@ -146,7 +146,9 @@ ThemeData buildTheme(Brightness brightness) {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: p.card,
       indicatorColor: p.accent,
-      labelTextStyle: WidgetStatePropertyAll(TextStyle(color: p.foreground, fontSize: 12, fontWeight: FontWeight.w600)),
+      // Five tabs: keep "Einstellungen" on one line on small phones.
+      labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(color: p.foreground, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: -0.3)),
       iconTheme: WidgetStatePropertyAll(IconThemeData(color: p.foreground)),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: p.primary, linearTrackColor: p.muted),
