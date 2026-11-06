@@ -91,6 +91,9 @@ class PlanView {
       ? (state.timer?.day ?? state.pace?.draft?.day ?? day.index) == day.index
       : day.index == dateIndex || running;
   late final List<Chapter> sessionItems = sessionChapters(planState, day.index);
+
+  /// 52-week plan: today's number of sections to stay on schedule.
+  late final ({int target, int doneToday, String end})? goal = fixed ? bible52Goal(planState, currentDate) : null;
   late final Set<int> extraIds = {...?planState.adaptive?.extra[day.index]};
   late final Chapter? nextExtra = nextExtraChapter(planState, day.index);
   late final int remainingWords = totalWords - readWords;
@@ -122,8 +125,7 @@ class PlanView {
 
   /// "Gesamte Bibel · Biblische Reihenfolge"
   String get planLabel {
-    final p = planText(lang);
-    return '${p[state.config.scope ?? 'bible']} · ${p[state.config.order ?? 'canonical']}';
+    return '${planText(lang)[state.config.scope ?? 'bible']} · ${orderName(state.config.order, lang)}';
   }
 
   List<Chapter> sessionItemsFor(int dayIndex) => sessionChapters(planState, dayIndex);
@@ -160,8 +162,18 @@ class PlanView {
 /// Chapters of one day in reading order. The "balanced" order mixes several
 /// strands; showing each book together ("1. Mose 3–4 · Matthäus 2" instead of
 /// "1. Mose 3 · Matthäus 2 · 1. Mose 4") reads naturally and changes nothing
-/// about which chapters belong to the day. Other orders stay as planned.
+/// about which chapters belong to the day. "AT & NT parallel" shows the New
+/// Testament first (morning) and the Old Testament after it (evening);
+/// "Chronologisch mit Psalmen" puts the day's companion psalm last.
 List<Chapter> displayOrder(List<Chapter> items, Config config) {
+  if (items.length < 2) return items;
+  if (config.order == 'parallel') {
+    return [...items.where((ch) => ch.bookIndex >= 39), ...items.where((ch) => ch.bookIndex < 39)];
+  }
+  if (config.order == 'chronoPsalms') {
+    final companions = companionPsalms(config);
+    return [...items.where((ch) => !companions.contains(ch.id)), ...items.where((ch) => companions.contains(ch.id))];
+  }
   if (config.order != 'mixed' || items.length < 3) return items;
   final books = <int>[];
   for (final ch in items) {

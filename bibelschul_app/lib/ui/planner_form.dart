@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/plan_view.dart';
+import '../core/actions.dart' show planOrders;
 import '../core/book_order.dart';
 import '../core/deadline.dart';
 import '../core/editions.dart';
@@ -35,7 +36,7 @@ class PlannerForm extends StatefulWidget {
   State<PlannerForm> createState() => _PlannerFormState();
 }
 
-const _presetIds = ['bible', 'nt', 'chrono', 'mixed', '52'];
+const _presetIds = ['bible', 'parallel', 'chrono', 'chronoPsalms', 'mixed', 'nt', '52'];
 
 class _PlannerFormState extends State<PlannerForm> {
   /// null: choose a template · "custom": own plan (three steps) · otherwise a template id.
@@ -78,6 +79,8 @@ class _PlannerFormState extends State<PlannerForm> {
         ..amount = 90
         ..unit = 'days',
       'chrono' => base..order = 'chronological',
+      'chronoPsalms' => base..order = 'chronoPsalms',
+      'parallel' => base..order = 'parallel',
       'mixed' => base..order = 'mixed',
       '52' => bible52Config(base),
       _ => base,
@@ -259,6 +262,8 @@ class _PlannerFormState extends State<PlannerForm> {
       'bible': Icons.menu_book_outlined,
       'nt': Icons.wb_sunny_outlined,
       'chrono': Icons.timeline,
+      'chronoPsalms': Icons.music_note_outlined,
+      'parallel': Icons.view_agenda_outlined,
       'mixed': Icons.shuffle,
       '52': Icons.calendar_view_week_outlined,
     };
@@ -390,11 +395,11 @@ class _PlannerFormState extends State<PlannerForm> {
             value: c.order ?? 'canonical',
             onChanged: (value) => setState(() => draft = draft.copy()..order = value),
             children: [
-              for (final value in ['canonical', 'chronological', 'mixed'])
+              for (final value in planOrders)
                 ChoiceTile<String>(
                   value: value,
                   enabled: !disabled,
-                  title: p[value],
+                  title: orderName(value, lang),
                   subtitle: u['orderHelp_$value'],
                 ),
             ],
@@ -635,7 +640,7 @@ class _PlannerFormState extends State<PlannerForm> {
             Expanded(child: Text(u['perDayEstimate'], style: TextStyle(color: palette.previewMuted))),
           ]),
           _line(Icons.menu_book_outlined,
-              fixed ? _title('52') : '${p[c.scope ?? 'bible']} · ${p[c.order ?? 'canonical']}', palette),
+              fixed ? _title('52') : '${p[c.scope ?? 'bible']} · ${orderName(c.order, lang)}', palette),
           _line(
               Icons.check_circle_outline,
               previouslyRead.isEmpty

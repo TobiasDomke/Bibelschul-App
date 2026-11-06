@@ -1,4 +1,5 @@
 import '../core/languages.dart';
+import 'app_texts.dart';
 import 'strings.g.dart';
 
 export 'strings.g.dart';
@@ -18,3 +19,9 @@ List<String>? bookNames(Lang lang) => bookNameTranslations[lang];
 
 String bible52Position(int index, Lang lang) =>
     '${bible52Text(lang).week} ${index ~/ 7 + 1} · ${bible52Text(lang).unit} ${index % 7 + 1}/7';
+
+/// Name of a reading order; the newer orders have their names in app_texts.
+String orderName(String? order, Lang lang) {
+  final o = order ?? 'canonical';
+  return uiTextKeys.contains('order_$o') ? ui(lang)['order_$o'] : planText(lang)[o];
+}

@@ -224,6 +224,7 @@ class TodayTab extends StatelessWidget {
                   : v.readLabel(day.chapters)),
           size: 24,
         ),
+        if (v.goal case final goal?) _goalLine(context, goal, v),
         Wrap(spacing: 14, runSpacing: 6, children: [
           if (v.fixed) _meta(context, Icons.category_outlined, u['cat${day.index % 7}']),
           if (day.words > 0)
@@ -452,6 +453,36 @@ class TodayTab extends StatelessWidget {
       progress,
       if (upcoming.isNotEmpty) next,
     ]);
+  }
+
+  Widget _goalLine(BuildContext context, ({int target, int doneToday, String end}) goal, PlanView v) {
+    final lang = v.lang;
+    final u = ui(lang);
+    final palette = context.palette;
+    final date = Fmt(lang).date(goal.end, long: true);
+    final done = goal.doneToday >= goal.target;
+    final text = done
+        ? fill(u['b52GoalDone'], {'date': date})
+        : goal.doneToday > 0
+            ? fill(u['b52GoalProgress'], {'done': '${goal.doneToday}', 'count': '${goal.target}', 'date': date})
+            : goal.target == 1
+                ? fill(u['b52GoalOne'], {'date': date})
+                : fill(u['b52Goal'], {'count': '${goal.target}', 'date': date});
+    return Tooltip(
+      message: u['b52GoalHelp'],
+      triggerMode: TooltipTriggerMode.tap,
+      showDuration: const Duration(seconds: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(color: palette.accent, borderRadius: BorderRadius.circular(10)),
+        child: Row(children: [
+          Icon(done ? Icons.check_circle : Icons.flag_outlined, size: 18, color: palette.primary),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: palette.foreground))),
+          Icon(Icons.info_outline, size: 16, color: palette.mutedForeground),
+        ]),
+      ),
+    );
   }
 
   Widget _meta(BuildContext context, IconData icon, String label) => Row(mainAxisSize: MainAxisSize.min, children: [

@@ -35,6 +35,9 @@ void _keys(Map<String, Object?> m, List<String> allowed) {
 bool _isTime(Object? v) => v is String && RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(v);
 bool _isZone(Object? v) => v is String && v.length <= 100 && isValidTimezone(v);
 
+/// Reading orders a plan can use.
+const planOrders = ['canonical', 'chronological', 'chronoPsalms', 'parallel', 'mixed'];
+
 /// Validates a stored/imported Config map strictly (zod `configSchema`).
 Config parseConfig(Object? raw) {
   if (raw is! Map) throw _invalid;
@@ -45,7 +48,7 @@ Config parseConfig(Object? raw) {
   if (!optEnum('template', ['bible52']) ||
       !optEnum('edition', editionIds) ||
       !optEnum('scope', ['bible', 'ot', 'nt']) ||
-      !optEnum('order', ['canonical', 'chronological', 'mixed']) ||
+      !optEnum('order', planOrders) ||
       !(m.containsKey('keepTogether') ? m['keepTogether'] is bool : true) ||
       !optEnum('bookOrder', bookOrders) ||
       !optEnum('bookOrderMode', ['auto', 'manual'])) {

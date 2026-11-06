@@ -340,7 +340,7 @@ class _PlanManagement extends StatelessWidget {
     return Panel(
       child: Gap(children: [
         Heading(p.manage, size: 19),
-        Muted(fixed ? 'Bibelleseplan 52' : '${p[state.config.scope ?? 'bible']} · ${p[state.config.order ?? 'canonical']}'),
+        Muted(fixed ? 'Bibelleseplan 52' : '${p[state.config.scope ?? 'bible']} · ${orderName(state.config.order, lang)}'),
         Text(fill(p.selected, {'count': state.previouslyRead?.length ?? 0})),
         Wrap(spacing: 8, runSpacing: 8, children: [
           OutlinedButton(
@@ -555,7 +555,7 @@ class JoinPlanCard extends StatelessWidget {
     final fmt = Fmt(lang);
     final summary = [
       if (plan.name.isNotEmpty) plan.name,
-      isBible52(config) ? 'Bibelleseplan 52' : '${p[config.scope ?? 'bible']} · ${p[config.order ?? 'canonical']}',
+      isBible52(config) ? 'Bibelleseplan 52' : '${p[config.scope ?? 'bible']} · ${orderName(config.order, lang)}',
       editionName(config.edition),
       '${x['start']}: ${fmt.date(days.first.date, long: true)} · ${t.target}: ${fmt.date(days.last.date, long: true)}',
     ].join('\n');

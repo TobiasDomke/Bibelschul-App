@@ -6,6 +6,7 @@ import '../core/languages.dart';
 import '../core/planner.dart';
 import '../core/reading_time.dart';
 import '../core/state.dart';
+import '../core/util.dart';
 import '../i18n/app_texts.dart';
 import '../i18n/i18n.dart';
 import 'theme.dart';
@@ -19,14 +20,31 @@ class ReadingContext extends StatelessWidget {
   final Lang lang;
   @override
   Widget build(BuildContext context) {
-    if (config.order != 'chronological') return const SizedBox.shrink();
+    if (config.order != 'chronological' && config.order != 'chronoPsalms') return const SizedBox.shrink();
     final ids = {for (final c in items) c.id};
     final groups = historicalGroupsFor(config.edition)
         .where((g) => g.kind != null && g.chapters.any((c) => ids.contains(c.id)))
         .toList();
-    if (groups.isEmpty) return const SizedBox.shrink();
+    final u = ui(lang);
+    final companions = companionPsalms(config);
+    final psalms = [
+      for (final c in items)
+        if (psalmAnchor(config, c.id) case final anchor?) (c, anchor),
+    ];
+    final companion = items.where((c) => companions.contains(c.id)).toList();
+    if (groups.isEmpty && psalms.isEmpty && companion.isEmpty) return const SizedBox.shrink();
     final p = planText(lang), names = bookNames(lang);
     return Details(summary: p.why, children: [
+      for (final (psalm, anchor) in psalms)
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(passage([psalm], names), style: const TextStyle(fontWeight: FontWeight.w700)),
+          Muted(fill(u['psalmBelongs'], {'passage': passage([anchor], names)})),
+        ]),
+      if (companion.isNotEmpty)
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(passage(companion, names), style: const TextStyle(fontWeight: FontWeight.w700)),
+          Muted(u['companionPsalm']),
+        ]),
       for (final g in groups)
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(passage(g.chapters, names), style: const TextStyle(fontWeight: FontWeight.w700)),

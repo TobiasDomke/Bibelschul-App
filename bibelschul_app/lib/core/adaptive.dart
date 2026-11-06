@@ -45,7 +45,7 @@ void redistribute(ReadingState state, int from, String date) {
   }
   final remaining = ordered.where((c) => !state.done.containsKey(c.id) && !previous.contains(c.id)).toList();
   final future =
-      distributeChapters(remaining, count - from, addDays(state.config.start, from), boundaryPreference(state.config));
+      distributePlan(state.config, remaining, count - from, addDays(state.config.start, from));
   assertCoverage(ordered, [
     ...?state.previouslyRead,
     ...state.done.keys,
@@ -156,4 +156,44 @@ int bible52CurrentUnit(ReadingState state) {
     if (!(state.adaptive?.finished.contains(u.index) ?? false)) return u.index;
   }
   return 363;
+}
+
+/// Today's goal in the 52-week plan: how many sections to read today so the
+/// plan still ends on time (start + 363 days). Skipped days are spread over
+/// all remaining days; sections stay whole and short ones are paired first,
+/// so on schedule it is exactly one section a day as in the template.
+/// Null before the start or when nothing is left.
+({int target, int doneToday, String end})? bible52Goal(ReadingState state, String date) {
+  if (!isBible52(state.config)) return null;
+  final start = state.config.start;
+  final day = daysBetween(start, date);
+  if (day < 0) return null;
+  final finished = (state.adaptive?.finished ?? const <int>[]).toSet();
+  final previous = (state.previouslyRead ?? const <int>[]).toSet();
+  final today = [
+    for (final u in bible52Units)
+      if (finished.contains(u.index) && u.chapters.any((c) => state.done[c.id] == date)) u,
+  ];
+  final open = [for (final u in bible52Units) if (!finished.contains(u.index)) u];
+  if (open.isEmpty && today.isEmpty) return null;
+  final remaining = [...today, ...open];
+  int effort(Bible52Unit u) =>
+      max(1, u.chapters.where((c) => !previous.contains(c.id)).fold<int>(0, (n, c) => n + c.effort));
+  final daysLeft = max(1, bible52Units.length - day);
+  var target = 1;
+  if (day >= bible52Units.length) {
+    target = remaining.length;
+  } else if (remaining.length > daysLeft) {
+    final goal = remaining.fold<int>(0, (n, u) => n + effort(u)) / daysLeft;
+    final limit = remaining.length - daysLeft + 1;
+    var sum = effort(remaining.first);
+    while (target < limit && (sum + effort(remaining[target]) - goal).abs() <= (sum - goal).abs()) {
+      sum += effort(remaining[target++]);
+    }
+  }
+  return (
+    target: min(target, remaining.length),
+    doneToday: today.length,
+    end: addDays(start, bible52Units.length - 1),
+  );
 }

@@ -44,7 +44,7 @@ class PlanTab extends StatelessWidget {
     final todayPage = v.dateIndex ~/ perPage;
     return Gap(space: 14, children: [
       Heading(t.plan, size: 26),
-      Muted(v.fixed ? 'Bibelleseplan 52' : '${p[s.config.scope ?? 'bible']} · ${p[s.config.order ?? 'canonical']}'),
+      Muted(v.fixed ? 'Bibelleseplan 52' : '${p[s.config.scope ?? 'bible']} · ${orderName(s.config.order, lang)}'),
       Panel(
         padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
         child: Gap(space: 10, children: [

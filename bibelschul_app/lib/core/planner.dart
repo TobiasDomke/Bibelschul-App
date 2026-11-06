@@ -260,15 +260,25 @@ final Map<int, int> bible52ChapterUnit = {
 
 // Weighted interleaving keeps every stream's internal order and finishes them
 // together. It is deterministic, so extra reading follows the same order.
-List<Chapter> _mixedChapters(List<Chapter> items) {
-  final streams = [
-    items.where((c) => c.bookIndex < 17 || (c.bookIndex >= 22 && c.bookIndex < 39)).toList(),
-    items.where((c) => c.bookIndex >= 17 && c.bookIndex < 22).toList(),
-    items.where((c) => c.bookIndex >= 39 && c.bookIndex <= 43).toList(),
-    items.where((c) => c.bookIndex > 43).toList(),
-  ].where((s) => s.isNotEmpty).map((s) => _Stream(s)).toList();
+List<Chapter> _mixedChapters(List<Chapter> items) => _interleave([
+      items.where((c) => c.bookIndex < 17 || (c.bookIndex >= 22 && c.bookIndex < 39)).toList(),
+      items.where((c) => c.bookIndex >= 17 && c.bookIndex < 22).toList(),
+      items.where((c) => c.bookIndex >= 39 && c.bookIndex <= 43).toList(),
+      items.where((c) => c.bookIndex > 43).toList(),
+    ]);
+
+/// "AT & NT parallel": both testaments book by book side by side, so every
+/// day has some Old and (while it lasts) some New Testament.
+List<Chapter> _parallelChapters(List<Chapter> items) => _interleave([
+      items.where((c) => c.bookIndex < 39).toList(),
+      items.where((c) => c.bookIndex >= 39).toList(),
+    ]);
+
+List<Chapter> _interleave(List<List<Chapter>> lists) {
+  final streams = lists.where((s) => s.isNotEmpty).map((s) => _Stream(s)).toList();
+  final count = lists.fold<int>(0, (n, s) => n + s.length);
   final result = <Chapter>[];
-  while (result.length < items.length) {
+  while (result.length < count) {
     _Stream? best;
     for (final s in streams) {
       if (s.cursor >= s.items.length) continue;
@@ -289,6 +299,110 @@ class _Stream {
   _Stream(this.items) : total = items.fold(0, (s, c) => s + c.effort);
 }
 
+/// Psalm chapter ids placed after a chapter (Schlachter ids), see psalmAnchors.
+final Map<int, List<int>> psalmAnchorMap = () {
+  final psalms = chapters.where((c) => c.code == 'PSA').toList();
+  final result = <int, List<int>>{};
+  final seen = <int>{};
+  for (final (ref, numbers) in psalmAnchors) {
+    final anchor = referenceChapters(ref).single;
+    for (final n in numbers) {
+      if (!seen.add(n)) throw const AppError('psalms');
+      (result[anchor.id] ??= []).add(psalms[n - 1].id);
+    }
+  }
+  return result;
+}();
+
+class _PsalmOrder {
+  const _PsalmOrder(this.order, this.companions, this.groups, this.anchors);
+  final List<Chapter> order;
+
+  /// Psalms read alongside, not tied to an event.
+  final Set<int> companions;
+
+  /// Historical blocks including their psalms (for keeping text together).
+  final List<List<Chapter>> groups;
+
+  /// Psalm id -> the chapter it belongs to.
+  final Map<int, Chapter> anchors;
+}
+
+final Map<String, _PsalmOrder> _psalmOrderCache = {};
+
+/// "Chronologisch mit Psalmen": the chronological order without its psalm
+/// blocks; each psalm with a known occasion follows that chapter, all other
+/// psalms are spread evenly over the plan.
+_PsalmOrder _psalmOrder(Config config) {
+  final edition = config.edition ?? 'schlachter2000';
+  final scope = config.scope ?? 'bible';
+  return _psalmOrderCache['$edition:$scope'] ??= () {
+    bool inScope(Chapter c) => scope == 'ot' ? c.bookIndex < 39 : (scope == 'nt' ? c.bookIndex >= 39 : true);
+    final units = <List<Chapter>>[];
+    final groups = <List<Chapter>>[];
+    for (final g in historicalGroups) {
+      final group = <Chapter>[];
+      for (final c in g.chapters) {
+        if (c.code == 'PSA' || !inScope(c)) continue;
+        final unit = [c, for (final id in psalmAnchorMap[c.id] ?? const <int>[]) if (inScope(chapters[id])) chapters[id]];
+        units.add(unit);
+        group.addAll(unit);
+      }
+      if (group.isNotEmpty) groups.add(group);
+    }
+    final placed = {for (final u in units) for (final c in u) c.id};
+    final companions = [for (final c in chapters) if (c.code == 'PSA' && inScope(c) && !placed.contains(c.id)) c];
+    final mainTotal = units.fold<int>(0, (n, u) => n + u.fold<int>(0, (m, c) => m + c.effort));
+    final companionTotal = companions.fold<int>(0, (n, c) => n + c.effort);
+    final order = <Chapter>[];
+    var mainRead = 0, companionRead = 0, next = 0;
+    for (final unit in units) {
+      order.addAll(unit);
+      mainRead += unit.fold<int>(0, (m, c) => m + c.effort);
+      while (next < companions.length && companionRead / companionTotal < mainRead / mainTotal) {
+        companionRead += companions[next].effort;
+        order.add(companions[next++]);
+      }
+    }
+    order.addAll(companions.skip(next));
+    final anchors = <int, Chapter>{
+      for (final u in units)
+        for (final p in u.skip(1)) p.id: u.first,
+    };
+    if (edition == 'schlachter2000') {
+      return _PsalmOrder(order, {for (final c in companions) c.id}, groups, anchors);
+    }
+    final mapped = _mapEditorial(order, edition);
+    final ids = {for (final c in mapped) c.id};
+    final companionIds = {for (final c in _mapEditorial(companions, edition)) c.id};
+    final edited = chaptersFor(edition);
+    final mappedAnchors = <int, Chapter>{};
+    for (final MapEntry(key: psalm, value: anchor) in anchors.entries) {
+      final targets = _mapEditorial([chapters[psalm]], edition);
+      final at = _mapEditorial([anchor], edition);
+      if (targets.isNotEmpty && at.isNotEmpty) {
+        for (final t in targets) {
+          mappedAnchors[t.id] = at.first;
+        }
+      }
+    }
+    assert(ids.every((id) => id < edited.length));
+    return _PsalmOrder(
+      mapped,
+      companionIds.difference(mappedAnchors.keys.toSet()),
+      [for (final g in groups) _mapEditorial(g, edition)],
+      mappedAnchors,
+    );
+  }();
+}
+
+/// Companion psalms of a plan: read after the day's main text.
+Set<int> companionPsalms(Config config) => config.order == 'chronoPsalms' ? _psalmOrder(config).companions : const {};
+
+/// The chapter a psalm belongs to in "Chronologisch mit Psalmen".
+Chapter? psalmAnchor(Config config, int psalm) =>
+    config.order == 'chronoPsalms' ? _psalmOrder(config).anchors[psalm] : null;
+
 final Map<String, List<Chapter>> _orderCache = {};
 
 List<Chapter> orderedChapters(Config config) {
@@ -301,6 +415,13 @@ List<Chapter> orderedChapters(Config config) {
 List<Chapter> _buildOrder(Config config) {
   final scope = scopeFor(config);
   if (config.order == 'mixed') return _mixedChapters(scope);
+  if (config.order == 'parallel') return _parallelChapters(scope);
+  if (config.order == 'chronoPsalms') {
+    final ids = {for (final c in scope) c.id};
+    final order = [for (final c in _psalmOrder(config).order) if (ids.contains(c.id)) c];
+    assertCoverage(scope, [for (final c in order) c.id]);
+    return order;
+  }
   if (config.order == 'chronological') {
     final ids = {for (final c in scope) c.id};
     return [
@@ -322,7 +443,9 @@ Boundary? boundaryPreference(Config config) {
   final edition = config.edition ?? 'schlachter2000';
   final List<List<Chapter>> groups = config.order == 'chronological'
       ? [for (final g in historicalGroupsFor(config.edition)) g.chapters]
-      : (_cohesiveCache[edition] ??= [for (final g in _cohesiveGroups) _mapEditorial(g, config.edition)]);
+      : config.order == 'chronoPsalms'
+          ? _psalmOrder(config).groups
+          : (_cohesiveCache[edition] ??= [for (final g in _cohesiveGroups) _mapEditorial(g, config.edition)]);
   final membership = <int, int>{};
   for (final (i, group) in groups.indexed) {
     for (final c in group) {
@@ -350,11 +473,45 @@ List<Day> createPlan(Config config, [List<int> previouslyRead = const []]) {
         }(),
     ];
   } else {
-    plan = distributeChapters(items.where((c) => !previous.contains(c.id)).toList(), duration(config), config.start,
-        boundaryPreference(config));
+    plan = distributePlan(config, items.where((c) => !previous.contains(c.id)).toList(), duration(config), config.start);
   }
   assertCoverage(items, [...previouslyRead, for (final d in plan) for (final c in d.chapters) c.id]);
   return plan;
+}
+
+/// Splits [items] (in plan order) into [days] days of about equal effort.
+/// "AT & NT parallel" first spreads the New Testament evenly (at most one
+/// chapter a day while it is shorter than the plan), then fills every day with
+/// Old Testament reading up to the same length.
+List<Day> distributePlan(Config config, List<Chapter> items, int days, String start) {
+  if (config.order != 'parallel') return distributeChapters(items, days, start, boundaryPreference(config));
+  final nt = items.where((c) => c.bookIndex >= 39).toList();
+  final ot = items.where((c) => c.bookIndex < 39).toList();
+  if (nt.isEmpty || ot.isEmpty || days < 1) return distributeChapters(items, days, start);
+  final result = distributeChapters(nt, days, start);
+  var remaining = items.fold<int>(0, (n, c) => n + c.effort);
+  var cursor = 0;
+  for (var i = 0; i < days; i++) {
+    final day = result[i];
+    final remainingDays = days - i;
+    final target = remaining / remainingDays - day.words;
+    remaining -= day.words;
+    final mustTake = ot.length - cursor >= remainingDays;
+    final limit = mustTake ? ot.length - remainingDays + 1 : ot.length;
+    var words = 0;
+    while (cursor < ot.length) {
+      final next = ot[cursor].effort;
+      final take = remainingDays == 1 ||
+          (words == 0 && mustTake) ||
+          (cursor < limit && (words + next - target).abs() <= (words - target).abs());
+      if (!take) break;
+      day.chapters.add(ot[cursor++]);
+      words += next;
+    }
+    day.words += words;
+    remaining -= words;
+  }
+  return result;
 }
 
 List<Day> distributeChapters(List<Chapter> items, int days, String start, [Boundary? preferredBoundary]) {
